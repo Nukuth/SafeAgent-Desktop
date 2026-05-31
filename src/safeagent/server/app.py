@@ -5,6 +5,10 @@ from safeagent.server.settings import ServerSettings
 from safeagent.shared.auth import require_bearer_token
 from safeagent.shared.enums import EventType, NetworkMode, RemotePermission, RiskLevel, Severity, TaskStatus
 from safeagent.shared.errors import ErrorEnvelope, SafeAgentError
+from safeagent.shared.heartbeat_status import (
+    DEFAULT_HEARTBEAT_STALE_AFTER_SECONDS,
+    build_device_heartbeat_view,
+)
 from safeagent.shared.redaction import redact_payload
 from safeagent.shared.remote_permissions import (
     require_approval_permission,
@@ -16,7 +20,7 @@ from safeagent.shared.schemas import ApprovalRecord, RunEvent, TaskCreate
 
 def create_app():  # type: ignore[no-untyped-def]
     try:
-        from fastapi import Depends, FastAPI, Header, HTTPException
+        from fastapi import Depends, FastAPI, Header, HTTPException, Query
         from fastapi.exceptions import RequestValidationError
         from fastapi.responses import JSONResponse
         from pydantic import BaseModel, Field
@@ -116,8 +120,11 @@ def create_app():  # type: ignore[no-untyped-def]
         return {"status": "ok"}
 
     @app.get("/api/devices/{device_id}/heartbeat", dependencies=[Depends(require_auth)])
-    def latest_heartbeat(device_id: str) -> dict[str, Any]:
-        return {"heartbeat": store.latest_heartbeat(device_id)}
+    def latest_heartbeat(
+        device_id: str,
+        stale_after_seconds: int = Query(default=DEFAULT_HEARTBEAT_STALE_AFTER_SECONDS, ge=1, le=3600),
+    ) -> dict[str, Any]:
+        return build_device_heartbeat_view(device_id, store.latest_heartbeat(device_id), stale_after_seconds)
 
     @app.post("/api/tasks/{task_id}/events", dependencies=[Depends(require_worker_auth)])
     def append_event(task_id: str, body: EventBody) -> dict[str, Any]:

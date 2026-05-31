@@ -323,3 +323,31 @@ result: 125 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=125 failed=0
 ```
+
+## Derived Worker Heartbeat Status
+
+```text
+1. Added shared build_device_heartbeat_view().
+2. GET /api/devices/{device_id}/heartbeat now returns device_status.
+3. device_status can be online, stale, or never_seen.
+4. API response includes age_seconds and stale_after_seconds.
+5. Default stale threshold is 60 seconds and can be changed with stale_after_seconds query param.
+6. Stored heartbeat payload remains raw/redacted; status derivation stays outside TaskStore.
+7. Invalid heartbeat timestamps are treated as stale with status_reason=invalid_updated_at.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_heartbeat_status.py tests\test_server_app.py tests\test_server_store.py -q
+result: 11 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\check_module_boundaries.py
+result: OK module boundaries
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 128 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=128 failed=0
+```

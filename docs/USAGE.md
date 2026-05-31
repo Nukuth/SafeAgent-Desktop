@@ -831,6 +831,10 @@ Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/devices/local-pc-1
 返回中重点看：
 
 ```text
+device_id
+device_status
+age_seconds
+stale_after_seconds
 heartbeat.device_id
 heartbeat.phase
 heartbeat.status
@@ -838,5 +842,19 @@ heartbeat.task_count
 heartbeat.updated_at
 ```
 
-如果 `heartbeat = null`，表示该 `device_id` 还没有成功上报过心跳。先检查
+`device_status` 由控制面根据 `heartbeat.updated_at` 派生，不需要 UI 自己猜：
+
+```text
+online：最近 60 秒内有 heartbeat。
+stale：曾经有 heartbeat，但已经超过 stale_after_seconds。
+never_seen：该 device_id 从未成功上报 heartbeat。
+```
+
+可以通过查询参数临时调整过期阈值：
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/devices/local-pc-1/heartbeat?stale_after_seconds=120" -Headers $headers
+```
+
+如果 `device_status = never_seen`，表示该 `device_id` 还没有成功上报过心跳。先检查
 `SAFEAGENT_DEVICE_ID`、`SAFEAGENT_WORKER_TOKEN` 和 worker 是否正在运行。

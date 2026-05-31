@@ -1208,7 +1208,7 @@ Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/devices/local-pc-1
 如果返回：
 
 ```text
-heartbeat = null
+device_status = never_seen
 ```
 
 常见原因：
@@ -1229,3 +1229,31 @@ heartbeat = null
 4. 如果 error.code = upstream.transient，检查云服务器、HTTPS、DNS 或网络。
 5. heartbeat 失败不应该阻塞任务 polling；如果任务也无法拉取，再看 fetch_pending 的错误。
 ```
+
+如果返回：
+
+```text
+device_status = stale
+```
+
+表示控制面曾经收到过 heartbeat，但已经超过 `stale_after_seconds`。默认阈值是 60 秒。
+
+处理方式：
+
+```text
+1. 确认本地 worker 进程仍在运行。
+2. 检查 worker 是否卡在模型调用、网络请求或本地任务处理中。
+3. 查看 age_seconds，判断最后一次成功上报距现在多久。
+4. 需要临时放宽判断时，在查询 URL 中传 stale_after_seconds=120。
+5. 不要把 stale 当成执行失败；它只表示远程可观测状态过期。
+```
+
+如果返回：
+
+```text
+device_status = stale
+status_reason = invalid_updated_at
+```
+
+说明控制面数据库里的 heartbeat 时间戳格式异常。先重启 worker 让它重新上报；如果仍然出现，检查
+`heartbeats.updated_at` 是否被手工修改过。

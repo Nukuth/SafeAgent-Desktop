@@ -125,6 +125,9 @@ def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
         assert heartbeat["phase"] == "poll_completed"
         assert heartbeat["token"] == "[REDACTED]"
         assert heartbeat["updated_at"]
+        assert heartbeat_view.json()["device_status"] == "online"
+        assert heartbeat_view.json()["age_seconds"] >= 0
+        assert heartbeat_view.json()["stale_after_seconds"] == 60
         assert_auth_failed(client.get("/api/devices/pc-1/heartbeat", headers=worker_headers()))
 
         assert_auth_failed(
@@ -135,6 +138,16 @@ def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
         )
         assert status_response.status_code == 200
         assert status_response.json()["status"] == "completed"
+
+        missing_heartbeat = client.get("/api/devices/missing-pc/heartbeat", headers=remote_headers())
+        assert missing_heartbeat.status_code == 200
+        assert missing_heartbeat.json() == {
+            "device_id": "missing-pc",
+            "device_status": "never_seen",
+            "heartbeat": None,
+            "age_seconds": None,
+            "stale_after_seconds": 60,
+        }
 
 
 def test_api_validation_errors_use_error_envelope_and_redaction(tmp_path):
