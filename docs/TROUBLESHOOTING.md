@@ -1105,3 +1105,39 @@ Local model endpoint is unreachable
 4. task_id / run_id / approval_id / plan_hash / command_hash 会保留，用于审计和追踪。
 5. 如果这些审计 ID 被脱敏，说明 redaction 安全白名单出错，应运行 tests\test_shared.py 和 tests\test_server_store.py。
 ```
+
+## 远程 UI 调 worker 专用接口返回 auth.failed
+
+这是预期行为。
+
+控制面现在分成两类 token：
+
+```text
+SAFEAGENT_SERVER_TOKEN：远程 UI / 用户入口。
+SAFEAGENT_WORKER_TOKEN：本地 worker polling / event / status 入口。
+```
+
+远程 UI 不能调用这些 worker-only 接口：
+
+```text
+GET  /api/tasks/pending
+POST /api/tasks/{task_id}/heartbeat
+POST /api/tasks/{task_id}/events
+GET  /api/tasks/{task_id}/approval/latest
+POST /api/tasks/{task_id}/status
+```
+
+如果远程 UI 用 `SAFEAGENT_SERVER_TOKEN` 调这些接口，会得到：
+
+```text
+auth.failed
+```
+
+处理方式：
+
+```text
+1. 确认本地 worker 使用 SAFEAGENT_WORKER_TOKEN。
+2. 确认远程 UI 不持有 SAFEAGENT_WORKER_TOKEN。
+3. 确认两个 token 在正式部署中不同。
+4. 本地开发为了兼容可以不设置 SAFEAGENT_WORKER_TOKEN，此时会退回 server token，但远程部署不要这样做。
+```

@@ -208,3 +208,36 @@ result: 118 passed, 1 warning
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=118 failed=0
 ```
+
+## Worker-Only API Boundary
+
+```text
+1. Added SAFEAGENT_WORKER_TOKEN to ServerSettings.
+2. Server falls back to SAFEAGENT_SERVER_TOKEN only when SAFEAGENT_WORKER_TOKEN is unset.
+3. Worker-only routes now require the worker token:
+   - GET /api/tasks/pending
+   - POST /api/tasks/{task_id}/heartbeat
+   - POST /api/tasks/{task_id}/events
+   - GET /api/tasks/{task_id}/approval/latest
+   - POST /api/tasks/{task_id}/status
+4. Remote UI routes continue to use SAFEAGENT_SERVER_TOKEN and remote permission headers.
+5. Fixed FastAPI body parsing by removing postponed annotations from server.app.
+6. Fixed event payload parsing by converting event_type, risk_level, and network_mode strings to enums.
+7. Added tests/test_server_app.py.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_server_app.py -q
+result: 2 passed, 1 warning
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 120 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\run_stdlib_tests.py
+result: passed=120 failed=0
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=120 failed=0
+```

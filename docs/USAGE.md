@@ -78,6 +78,27 @@ $headers = @{ Authorization = "Bearer change-me" }
 Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks/pending?device_id=local-pc-1" -Headers $headers
 ```
 
+Worker 专用接口应使用 `SAFEAGENT_WORKER_TOKEN`，不要用远程 UI 的
+`SAFEAGENT_SERVER_TOKEN`：
+
+```powershell
+$workerHeaders = @{ Authorization = "Bearer worker-token" }
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks/pending?device_id=local-pc-1" -Headers $workerHeaders
+```
+
+远程控制台 token 只能用于提交任务、读取 run、记录人工 approval。以下接口属于本地
+worker 专用：
+
+```text
+GET  /api/tasks/pending
+POST /api/tasks/{task_id}/heartbeat
+POST /api/tasks/{task_id}/events
+GET  /api/tasks/{task_id}/approval/latest
+POST /api/tasks/{task_id}/status
+```
+
+正式远程部署时，`SAFEAGENT_SERVER_TOKEN` 和 `SAFEAGENT_WORKER_TOKEN` 应不同。
+
 ## 重要安全提醒
 
 ```text

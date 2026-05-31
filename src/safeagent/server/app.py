@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 from typing import Any
 
 from safeagent.server.db import TaskStore
 from safeagent.server.settings import ServerSettings
 from safeagent.shared.auth import require_bearer_token
-from safeagent.shared.enums import RemotePermission, TaskStatus
+from safeagent.shared.enums import EventType, NetworkMode, RemotePermission, RiskLevel, TaskStatus
 from safeagent.shared.errors import SafeAgentError
 from safeagent.shared.redaction import redact_payload
 from safeagent.shared.remote_permissions import (
@@ -57,6 +55,9 @@ def create_app():  # type: ignore[no-untyped-def]
     def require_auth(authorization: str | None = Header(default=None)) -> None:
         require_bearer_token(authorization, settings.token)
 
+    def require_worker_auth(authorization: str | None = Header(default=None)) -> None:
+        require_bearer_token(authorization, settings.worker_token)
+
     @app.exception_handler(SafeAgentError)
     async def safeagent_error_handler(_request, exc: SafeAgentError):  # type: ignore[no-untyped-def]
         return JSONResponse(status_code=400, content={"error": redact_payload(exc.envelope.to_dict())})
@@ -79,27 +80,27 @@ def create_app():  # type: ignore[no-untyped-def]
         )
         return {"task": store.create_task(task).to_dict()}
 
-    @app.get("/api/tasks/pending", dependencies=[Depends(require_auth)])
+    @app.get("/api/tasks/pending", dependencies=[Depends(require_worker_auth)])
     def pending(device_id: str, limit: int = 5) -> dict[str, Any]:
         return {"tasks": store.claim_pending(device_id, limit=max(1, min(limit, 20)))}
 
-    @app.post("/api/tasks/{task_id}/heartbeat", dependencies=[Depends(require_auth)])
+    @app.post("/api/tasks/{task_id}/heartbeat", dependencies=[Depends(require_worker_auth)])
     def heartbeat(task_id: str, body: dict[str, Any]) -> dict[str, str]:
         device_id = str(body.get("device_id", "unknown"))
         store.heartbeat(device_id, redact_payload({"task_id": task_id, **body}))
         return {"status": "ok"}
 
-    @app.post("/api/tasks/{task_id}/events", dependencies=[Depends(require_auth)])
+    @app.post("/api/tasks/{task_id}/events", dependencies=[Depends(require_worker_auth)])
     def append_event(task_id: str, body: EventBody) -> dict[str, Any]:
         try:
             event = RunEvent(
                 task_id=task_id,
                 run_id=body.run_id,
                 agent=body.agent,
-                event_type=body.event_type,  # type: ignore[arg-type]
+                event_type=EventType(body.event_type),
                 summary=body.summary,
-                risk_level=body.risk_level,  # type: ignore[arg-type]
-                network_mode=body.network_mode,  # type: ignore[arg-type]
+                risk_level=RiskLevel(body.risk_level),
+                network_mode=NetworkMode(body.network_mode),
                 details=redact_payload(body.details),
             )
         except ValueError as exc:
@@ -132,12 +133,12 @@ def create_app():  # type: ignore[no-untyped-def]
         )
         return {"approval": redact_payload(approval.to_dict())}
 
-    @app.get("/api/tasks/{task_id}/approval/latest", dependencies=[Depends(require_auth)])
+    @app.get("/api/tasks/{task_id}/approval/latest", dependencies=[Depends(require_worker_auth)])
     def latest_approval(task_id: str) -> dict[str, Any]:
         approval = store.latest_approval_for_task(task_id)
         return {"approval": approval}
 
-    @app.post("/api/tasks/{task_id}/status", dependencies=[Depends(require_auth)])
+    @app.post("/api/tasks/{task_id}/status", dependencies=[Depends(require_worker_auth)])
     def update_status(task_id: str, body: StatusBody) -> dict[str, str]:
         try:
             status = TaskStatus(body.status)
