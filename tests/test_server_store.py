@@ -86,6 +86,33 @@ def test_task_store_allows_worker_status_path(tmp_path):
     assert run["diagnostics"]["status"] == "not_found"
 
 
+def test_task_store_lists_and_reads_task_details_without_claiming(tmp_path):
+    store = TaskStore(tmp_path / "server.sqlite3")
+    first = store.create_task(TaskCreate(content="check one", device_id="pc-1"))
+    second = store.create_task(TaskCreate(content="check two", device_id="pc-2"))
+
+    all_tasks = store.list_tasks()
+    assert {task["task_id"] for task in all_tasks} == {first.task_id, second.task_id}
+
+    pc1_tasks = store.list_tasks(device_id="pc-1")
+    assert [task["task_id"] for task in pc1_tasks] == [first.task_id]
+    assert pc1_tasks[0]["status"] == "pending"
+
+    pending_tasks = store.list_tasks(status=TaskStatus.PENDING)
+    assert {task["task_id"] for task in pending_tasks} == {first.task_id, second.task_id}
+
+    detail = store.get_task_detail(first.task_id)
+    assert detail is not None
+    assert detail["task"]["task_id"] == first.task_id
+    assert detail["events"] == []
+    assert detail["approvals"] == []
+    assert detail["run_ids"] == []
+
+    assert store.get_task_detail("task_missing") is None
+    assert store.claim_pending("pc-1")[0]["task_id"] == first.task_id
+    assert store.list_tasks(device_id="pc-1")[0]["status"] == "claimed"
+
+
 def test_task_store_redacts_cloud_persisted_payloads(tmp_path):
     db_path = tmp_path / "server.sqlite3"
     store = TaskStore(db_path)

@@ -109,6 +109,22 @@ def create_app():  # type: ignore[no-untyped-def]
         )
         return {"task": store.create_task(task).to_dict()}
 
+    @app.get("/api/tasks", dependencies=[Depends(require_auth)])
+    def list_tasks(
+        device_id: str | None = None,
+        status: str | None = None,
+        limit: int = Query(default=50, ge=1, le=200),
+    ) -> dict[str, Any]:
+        try:
+            task_status = TaskStatus(status) if status is not None else None
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"invalid status filter: {status}") from exc
+        return {
+            "tasks": store.list_tasks(device_id=device_id, status=task_status, limit=limit),
+            "filters": {"device_id": device_id, "status": task_status.value if task_status else None},
+            "limit": limit,
+        }
+
     @app.get("/api/tasks/pending", dependencies=[Depends(require_worker_auth)])
     def pending(device_id: str, limit: int = 5) -> dict[str, Any]:
         return {"tasks": store.claim_pending(device_id, limit=max(1, min(limit, 20)))}
@@ -182,6 +198,13 @@ def create_app():  # type: ignore[no-untyped-def]
             raise HTTPException(status_code=422, detail=f"invalid status: {body.status}") from exc
         store.update_task_status(task_id, status)
         return {"status": status.value}
+
+    @app.get("/api/tasks/{task_id}", dependencies=[Depends(require_auth)])
+    def get_task(task_id: str) -> dict[str, Any]:
+        detail = store.get_task_detail(task_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        return detail
 
     @app.get("/api/runs/{run_id}", dependencies=[Depends(require_auth)])
     def get_run(run_id: str) -> dict[str, Any]:

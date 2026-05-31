@@ -84,10 +84,29 @@ def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
         )
         assert_auth_failed(worker_task_create)
 
+        task_list = client.get("/api/tasks?device_id=pc-1", headers=remote_headers("view_only"))
+        assert task_list.status_code == 200
+        assert [task["task_id"] for task in task_list.json()["tasks"]] == [task_id]
+        assert task_list.json()["tasks"][0]["status"] == "pending"
+        assert task_list.json()["filters"] == {"device_id": "pc-1", "status": None}
+        assert_auth_failed(client.get("/api/tasks", headers=worker_headers()))
+
+        task_detail = client.get(f"/api/tasks/{task_id}", headers=remote_headers("view_only"))
+        assert task_detail.status_code == 200
+        assert task_detail.json()["task"]["task_id"] == task_id
+        assert task_detail.json()["events"] == []
+        assert task_detail.json()["approvals"] == []
+        assert task_detail.json()["run_ids"] == []
+        assert_auth_failed(client.get(f"/api/tasks/{task_id}", headers=worker_headers()))
+
         assert_auth_failed(client.get("/api/tasks/pending?device_id=pc-1", headers=remote_headers()))
         pending = client.get("/api/tasks/pending?device_id=pc-1", headers=worker_headers())
         assert pending.status_code == 200
         assert pending.json()["tasks"][0]["task_id"] == task_id
+
+        claimed_list = client.get("/api/tasks?device_id=pc-1&status=claimed", headers=remote_headers("view_only"))
+        assert claimed_list.status_code == 200
+        assert [task["task_id"] for task in claimed_list.json()["tasks"]] == [task_id]
 
         event_payload = {
             "run_id": "run_1",
@@ -203,6 +222,13 @@ def test_api_validation_errors_use_error_envelope_and_redaction(tmp_path):
             json={"status": "not_a_status"},
         )
         assert_validation_failed(invalid_status)
+
+        invalid_status_filter = client.get("/api/tasks?status=not_a_status", headers=remote_headers())
+        assert_validation_failed(invalid_status_filter)
+
+        missing_task = client.get("/api/tasks/task_missing", headers=remote_headers())
+        assert missing_task.status_code == 404
+        assert missing_task.json()["error"]["code"] == "validation.failed"
 
 
 def test_remote_approval_is_not_a_worker_route(tmp_path):

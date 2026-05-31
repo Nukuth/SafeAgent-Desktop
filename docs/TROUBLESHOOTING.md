@@ -1160,6 +1160,7 @@ error.message = API request failed validation
 2. POST /api/tasks/{task_id}/events 使用未知 event_type / risk_level / network_mode。
 3. POST /api/tasks/{task_id}/status 使用未知 status。
 4. approval decision 不是 approved 或 rejected。
+5. GET /api/tasks 的 status 过滤值不是合法任务状态。
 ```
 
 排查方式：
@@ -1169,6 +1170,32 @@ error.message = API request failed validation
 2. 不要依赖 FastAPI 默认 detail 字段；统一读取 error 字段。
 3. 如果 details 中出现 [REDACTED]，说明请求体里带了 token / api_key / secret。
 4. 先修正请求 payload，不要在 server 端放宽校验。
+```
+
+## 远程任务列表看不到任务
+
+远程 UI 应通过 server token 调只读接口：
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks?device_id=local-pc-1" -Headers @{ Authorization = "Bearer change-me" }
+```
+
+常见原因：
+
+```text
+1. device_id 过滤值和提交任务时不一致。
+2. status 过滤值不匹配，例如任务已经 claimed，却查 pending。
+3. 使用了 worker token 调远程只读接口，导致 auth.failed。
+4. 查询的是旧的 SAFEAGENT_DB_PATH。
+```
+
+处理方式：
+
+```text
+1. 先不带 status，只用 device_id 查询。
+2. 再用 GET /api/tasks/{task_id} 查看单个任务详情。
+3. 如果 task detail 里有 run_ids，再用 GET /api/runs/{run_id} 查看诊断。
+4. 不要用 GET /api/tasks/pending 做 UI 展示；它会让 worker claim 任务并改变状态。
 ```
 
 ## Worker 日志里出现控制面请求错误

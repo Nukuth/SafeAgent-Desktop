@@ -141,6 +141,56 @@ class TaskStore:
                 )
         return [dict(row) for row in rows]
 
+    def list_tasks(
+        self,
+        device_id: str | None = None,
+        status: TaskStatus | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if device_id:
+            clauses.append("device_id = ?")
+            params.append(device_id)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status.value)
+        where = f"where {' and '.join(clauses)}" if clauses else ""
+        params.append(max(1, min(limit, 200)))
+        with self._connection() as conn:
+            rows = conn.execute(
+                f"""
+                select * from tasks
+                {where}
+                order by updated_at desc, created_at desc
+                limit ?
+                """,
+                tuple(params),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_task_detail(self, task_id: str) -> dict[str, Any] | None:
+        with self._connection() as conn:
+            task = conn.execute("select * from tasks where task_id = ?", (task_id,)).fetchone()
+            if task is None:
+                return None
+            events = conn.execute(
+                "select payload_json from events where task_id = ? order by created_at asc",
+                (task_id,),
+            ).fetchall()
+            approvals = conn.execute(
+                "select payload_json from approvals where task_id = ? order by created_at asc",
+                (task_id,),
+            ).fetchall()
+        event_payloads = [json.loads(row["payload_json"]) for row in events]
+        approval_payloads = [json.loads(row["payload_json"]) for row in approvals]
+        return {
+            "task": dict(task),
+            "events": event_payloads,
+            "approvals": approval_payloads,
+            "run_ids": _ordered_run_ids(event_payloads, approval_payloads),
+        }
+
     def update_task_status(self, task_id: str, status: TaskStatus) -> None:
         with self._connection() as conn:
             row = conn.execute("select status from tasks where task_id = ?", (task_id,)).fetchone()
@@ -270,3 +320,12 @@ class TaskStore:
             "approvals": approval_payloads,
             "diagnostics": build_run_diagnostics(event_payloads, approval_payloads),
         }
+
+
+def _ordered_run_ids(events: list[dict[str, Any]], approvals: list[dict[str, Any]]) -> list[str]:
+    run_ids: list[str] = []
+    for payload in [*events, *approvals]:
+        run_id = payload.get("run_id")
+        if isinstance(run_id, str) and run_id and run_id not in run_ids:
+            run_ids.append(run_id)
+    return run_ids

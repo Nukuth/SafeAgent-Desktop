@@ -97,6 +97,33 @@ GET  /api/tasks/{task_id}/approval/latest
 POST /api/tasks/{task_id}/status
 ```
 
+远程 UI 的只读任务状态接口使用 `SAFEAGENT_SERVER_TOKEN`，不会 claim 任务，也不会改变任务状态：
+
+```powershell
+$headers = @{ Authorization = "Bearer change-me" }
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks?device_id=local-pc-1" -Headers $headers
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks?device_id=local-pc-1&status=waiting_approval" -Headers $headers
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/tasks/<task_id>" -Headers $headers
+```
+
+返回内容只来自云端控制面数据库里的脱敏任务、事件和 approval：
+
+```text
+GET /api/tasks:
+tasks
+filters
+limit
+
+GET /api/tasks/{task_id}:
+task
+events
+approvals
+run_ids
+```
+
+如果需要某个 run 的诊断摘要，再用 `GET /api/runs/{run_id}`。不要让远程 UI 调
+`GET /api/tasks/pending`，那个接口属于本地 worker，会把 pending 任务改成 claimed。
+
 正式远程部署时，`SAFEAGENT_SERVER_TOKEN` 和 `SAFEAGENT_WORKER_TOKEN` 应不同。
 
 ## 重要安全提醒

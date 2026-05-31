@@ -351,3 +351,32 @@ result: 128 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=128 failed=0
 ```
+
+## Remote Task Visibility API
+
+```text
+1. Added TaskStore.list_tasks() for remote-safe task status views.
+2. Added TaskStore.get_task_detail() for redacted task detail, events, approvals, and run_ids.
+3. Added GET /api/tasks with optional device_id, status, and limit filters.
+4. Added GET /api/tasks/{task_id} for remote task detail.
+5. Remote task reads require SAFEAGENT_SERVER_TOKEN.
+6. Worker token cannot use remote read routes when tokens are separated.
+7. GET /api/tasks does not claim pending tasks or mutate task status.
+8. Invalid status filters return validation.failed through the standard API envelope.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_server_store.py tests\test_server_app.py -q
+result: 9 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 129 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=129 failed=0
+```
