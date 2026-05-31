@@ -840,6 +840,20 @@ module = local_worker.providers
 API Key 环境变量。节点 handler 会把错误写入对应节点的 `model` 字段，`GraphRunner` 仍会继续完成 trace，不会绕过
 policy / approval / executor gate。
 
+检查当前模型配置状态：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
+```
+
+输出只包含 `has_api_key=true/false` 和 `api_key_source`，不会打印真实 API Key。典型输出含义：
+
+```text
+ready=True：配置足够，worker 可以构建该 provider。
+ready=False reason=missing SAFEAGENT_DEEPSEEK_API_KEY：本地还没设置 DeepSeek key。
+reason=provider disabled in config：该 provider 在 configs/models.json 里关闭。
+```
+
 ## 本地 Qwen 应急模型
 
 本地 Qwen 的详细使用方式见：

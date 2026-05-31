@@ -415,3 +415,36 @@ result: 131 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; graph_runtime resolved_runtime=langgraph; stdlib_tests passed=131 failed=0
 ```
+
+## Model Config Status Check
+
+```text
+1. Added scripts/check_model_config.py.
+2. The script reports provider enabled/ready/model/base_url/api_key_env/has_api_key/api_key_source/reason.
+3. The script does not print real API key values.
+4. Doctor now runs model_config as a separate check.
+5. DeepSeek without SAFEAGENT_DEEPSEEK_API_KEY reports ready=False with reason=missing SAFEAGENT_DEEPSEEK_API_KEY.
+6. Codex remains ready=False while disabled in configs/models.json.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
+result: OK model config; deepseek ready=False reason=missing SAFEAGENT_DEEPSEEK_API_KEY
+
+.\.venv\Scripts\python.exe -m pytest tests\test_model_router.py tests\test_doctor.py -q
+result: 14 passed
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe .\scripts\check_config_sync.py
+result: OK config YAML/JSON sync and registry security contracts
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 133 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; model_config passed; graph_runtime resolved_runtime=langgraph; stdlib_tests passed=133 failed=0
+```

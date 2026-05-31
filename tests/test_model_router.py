@@ -8,6 +8,7 @@ from safeagent.local_worker.providers import (
     build_provider_registry,
     build_provider_registry_from_config,
     load_model_provider_specs,
+    model_provider_config_status,
 )
 from safeagent.shared.enums import RiskLevel
 
@@ -96,3 +97,21 @@ def test_provider_registry_uses_config_and_env_only_api_keys():
     assert "codex" not in status
     assert status["deepseek"]["has_api_key"] is True
     assert "sk-test-not-real" not in str(status)
+
+
+def test_model_provider_config_status_does_not_expose_api_key():
+    statuses = model_provider_config_status(
+        Path("configs/models.json"),
+        env={
+            "SAFEAGENT_LOCAL_QWEN_API_KEY": "local-no-key",
+            "SAFEAGENT_DEEPSEEK_API_KEY": "sk-test-not-real",
+        },
+    )
+    by_id = {item["provider_id"]: item for item in statuses}
+    assert by_id["local_qwen"]["ready"] is True
+    assert by_id["local_qwen"]["api_key_source"] == "env"
+    assert by_id["deepseek"]["ready"] is True
+    assert by_id["deepseek"]["api_key_env"] == "SAFEAGENT_DEEPSEEK_API_KEY"
+    assert by_id["codex"]["ready"] is False
+    assert by_id["codex"]["reason"] == "provider disabled in config"
+    assert "sk-test-not-real" not in str(statuses)

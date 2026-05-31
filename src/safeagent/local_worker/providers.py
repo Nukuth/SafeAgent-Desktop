@@ -186,6 +186,34 @@ class ProviderRegistry:
         return status
 
 
+def model_provider_config_status(
+    config_path: Path,
+    env: Mapping[str, str] | None = None,
+) -> list[dict[str, object]]:
+    effective_env = os.environ if env is None else env
+    statuses: list[dict[str, object]] = []
+    for provider_id, spec in load_model_provider_specs(config_path).items():
+        api_key = spec.api_key_from_env(effective_env)
+        key_source = "env" if spec.api_key_env in effective_env else "default" if spec.default_api_key else "missing"
+        ready = bool(spec.enabled and spec.base_url.strip() and spec.model.strip() and api_key)
+        statuses.append(
+            {
+                "provider_id": provider_id,
+                "type": spec.provider_type,
+                "enabled": spec.enabled,
+                "ready": ready,
+                "base_url": spec.base_url,
+                "model": spec.model,
+                "api_key_env": spec.api_key_env,
+                "has_api_key": bool(api_key),
+                "api_key_source": key_source,
+                "timeout_seconds": spec.timeout_seconds,
+                "reason": _provider_status_reason(spec, api_key),
+            }
+        )
+    return statuses
+
+
 def load_model_provider_specs(config_path: Path) -> dict[str, ModelProviderSpec]:
     data = load_json_config(config_path)
     if not isinstance(data, dict) or not isinstance(data.get("providers"), dict):
@@ -316,3 +344,18 @@ def build_provider_registry(
 def _looks_like_secret(value: str) -> bool:
     lowered = value.lower()
     return value.startswith("sk-") or "bearer " in lowered or "api_key" in lowered or "password" in lowered
+
+
+def _provider_status_reason(spec: ModelProviderSpec, api_key: str) -> str:
+    if not spec.enabled:
+        return "provider disabled in config"
+    missing: list[str] = []
+    if not spec.base_url.strip():
+        missing.append("base_url")
+    if not spec.model.strip():
+        missing.append("model")
+    if not api_key:
+        missing.append(spec.api_key_env)
+    if missing:
+        return "missing " + ", ".join(missing)
+    return "ready"

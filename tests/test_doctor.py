@@ -45,3 +45,10 @@ def test_doctor_report_includes_error_catalog_check_name():
     report = format_doctor_report(results)
     assert "PASS error_catalog" in report
     assert "OK error catalog" in report
+
+
+def test_doctor_report_includes_model_config_check_name():
+    results = [DoctorCheckResult(name="model_config", return_code=0, stdout="OK model config")]
+    report = format_doctor_report(results)
+    assert "PASS model_config" in report
+    assert "OK model config" in report

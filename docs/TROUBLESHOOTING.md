@@ -962,10 +962,25 @@ error.code = provider.not_configured
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\check_config_sync.py
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
 ```
 
 如果看到 `Model config must not contain real API keys`，说明把真实 key 写进了 `configs/models.json`，应立即删除，
 改为设置本地环境变量。
+
+如果 `check_model_config.py` 显示：
+
+```text
+provider=deepseek enabled=True ready=False ... reason=missing SAFEAGENT_DEEPSEEK_API_KEY
+```
+
+说明配置文件已经有 DeepSeek 端点和模型名，但本地环境变量还没设置。处理方式：
+
+```powershell
+$env:SAFEAGENT_DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+```
+
+如果 `api_key_source=default`，表示使用配置里的安全默认值，当前只建议用于本地 Qwen 的 `local-no-key`。
 
 如果日志中出现真实 API Key，这是安全缺陷，应立即停止 worker 并修复脱敏。
 
