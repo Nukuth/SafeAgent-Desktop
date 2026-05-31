@@ -36,6 +36,12 @@ HTTP validation failures. API callers should always read the top-level
 `error.code`, `error.module`, and `error.details` fields instead of relying on
 FastAPI's default `detail` shape.
 
+The local worker control-plane client preserves server-returned error envelopes.
+If the control plane returns `auth.failed`, worker logs should keep
+`auth.failed` instead of rewriting it to `upstream.transient`. Plain 4xx
+responses without an error envelope map to `validation.failed`; plain 5xx or
+network failures map to `upstream.transient`.
+
 ## Rules
 
 ```text

@@ -267,3 +267,31 @@ result: 121 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=121 failed=0
 ```
+
+## Control Plane Client Error Mapping
+
+```text
+1. Added raise_for_control_plane_error() in local_worker.client.
+2. Worker client now preserves server-returned {"error": ErrorEnvelope}.
+3. Server auth.failed remains auth.failed in worker logs.
+4. Plain 4xx without an error envelope maps to validation.failed.
+5. Plain 5xx/network failures map to upstream.transient.
+6. Response text and error details are redacted before entering local errors.
+7. Added tests/test_client_errors.py.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_client_errors.py -q
+result: 3 passed
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 124 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=124 failed=0
+```

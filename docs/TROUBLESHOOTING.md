@@ -1170,3 +1170,30 @@ error.message = API request failed validation
 3. 如果 details 中出现 [REDACTED]，说明请求体里带了 token / api_key / secret。
 4. 先修正请求 payload，不要在 server 端放宽校验。
 ```
+
+## Worker 日志里出现控制面请求错误
+
+本地 worker 访问云端控制面时会按错误来源分类：
+
+```text
+1. 控制面返回 {"error": ...}：worker 保留原始 error.code。
+2. 控制面返回普通 4xx：worker 记录 validation.failed。
+3. 控制面返回普通 5xx 或网络异常：worker 记录 upstream.transient。
+```
+
+典型判断：
+
+```text
+auth.failed：token 错误，常见于 SAFEAGENT_WORKER_TOKEN / SAFEAGENT_SERVER_TOKEN 用反。
+validation.failed：worker 发出的 payload 或状态转换被控制面拒绝。
+upstream.transient：控制面不可达、服务器故障、超时或普通 5xx。
+```
+
+排查顺序：
+
+```text
+1. 先看 error.code，不要只看 "Failed to fetch pending tasks" 这类外层动作。
+2. 如果 error.details.client_operation = fetch_pending，检查 worker token 和 /api/tasks/pending。
+3. 如果是 post_event / update_status，检查任务状态机和 server API 返回的 details。
+4. 如果是 upstream.transient，先确认云服务器、HTTPS、DNS、token 配置和网络是否正常。
+```
