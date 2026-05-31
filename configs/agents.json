@@ -1,0 +1,82 @@
+{
+  "agents": {
+    "planner": {
+      "role": "thinker",
+      "model_policy": "deepseek_default",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "shell_agent": {
+      "role": "producer",
+      "model_policy": "deepseek_default",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "file_agent": {
+      "role": "producer",
+      "model_policy": "deepseek_default",
+      "tools": ["list_files", "read_file"],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "code_agent": {
+      "role": "producer",
+      "model_policy": "deepseek_default",
+      "tools": ["propose_patch"],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "test_agent": {
+      "role": "reviewer",
+      "model_policy": "none",
+      "tools": ["run_tests_dry"],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "search_agent": {
+      "role": "producer",
+      "model_policy": "deepseek_default",
+      "tools": ["web_search"],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": true, "mode": "search_only", "can_download": false}
+    },
+    "rule_reviewer": {
+      "role": "reviewer",
+      "model_policy": "none",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "codex_reviewer": {
+      "role": "reviewer",
+      "model_policy": "codex_review",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "executor": {
+      "role": "actor",
+      "model_policy": "none",
+      "tools": ["local_executor"],
+      "permissions": {"can_execute": true, "can_write": true},
+      "network": {"allowed": false}
+    },
+    "human_approval": {
+      "role": "reviewer",
+      "model_policy": "none",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    },
+    "summarizer": {
+      "role": "thinker",
+      "model_policy": "deepseek_default",
+      "tools": [],
+      "permissions": {"can_execute": false, "can_write": false},
+      "network": {"allowed": false}
+    }
+  }
+}
+

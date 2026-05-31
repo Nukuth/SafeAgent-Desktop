@@ -1,0 +1,2 @@
+"""Local polling worker components."""
+

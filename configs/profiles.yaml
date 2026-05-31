@@ -1,0 +1,89 @@
+profiles:
+  safe_shell:
+    network_mode: api_only
+    remote_allowed: true
+    entry: planner
+    nodes:
+      - planner
+      - shell_agent
+      - rule_reviewer
+      - human_approval
+      - executor
+      - summarizer
+    edges:
+      - {from: planner, to: shell_agent}
+      - {from: shell_agent, to: rule_reviewer}
+      - {from: rule_reviewer, to: human_approval, condition: medium_or_higher}
+      - {from: rule_reviewer, to: executor, condition: low}
+      - {from: human_approval, to: executor, condition: approved}
+      - {from: executor, to: summarizer}
+
+  file_organize:
+    network_mode: api_only
+    remote_allowed: true
+    entry: planner
+    nodes:
+      - planner
+      - file_agent
+      - rule_reviewer
+      - human_approval
+      - executor
+      - summarizer
+    edges:
+      - {from: planner, to: file_agent}
+      - {from: file_agent, to: rule_reviewer}
+      - {from: rule_reviewer, to: human_approval, condition: medium_or_higher}
+      - {from: rule_reviewer, to: executor, condition: low}
+      - {from: human_approval, to: executor, condition: approved}
+      - {from: executor, to: summarizer}
+
+  code_change:
+    network_mode: api_only
+    remote_allowed: true
+    entry: planner
+    nodes:
+      - planner
+      - code_agent
+      - test_agent
+      - rule_reviewer
+      - codex_reviewer
+      - human_approval
+      - executor
+      - summarizer
+    edges:
+      - {from: planner, to: code_agent}
+      - {from: code_agent, to: test_agent}
+      - {from: test_agent, to: rule_reviewer}
+      - {from: rule_reviewer, to: codex_reviewer, condition: high}
+      - {from: rule_reviewer, to: human_approval, condition: medium}
+      - {from: codex_reviewer, to: human_approval, condition: review_passed}
+      - {from: human_approval, to: executor, condition: approved}
+      - {from: executor, to: summarizer}
+
+  research:
+    network_mode: search_allowed
+    remote_allowed: true
+    entry: planner
+    nodes:
+      - planner
+      - search_agent
+      - summarizer
+    edges:
+      - {from: planner, to: search_agent}
+      - {from: search_agent, to: summarizer}
+
+  high_risk_review:
+    network_mode: api_only
+    remote_allowed: false
+    entry: planner
+    nodes:
+      - planner
+      - rule_reviewer
+      - codex_reviewer
+      - human_approval
+      - summarizer
+    edges:
+      - {from: planner, to: rule_reviewer}
+      - {from: rule_reviewer, to: codex_reviewer}
+      - {from: codex_reviewer, to: human_approval, condition: review_passed}
+      - {from: human_approval, to: summarizer}

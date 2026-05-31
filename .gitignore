@@ -1,0 +1,11 @@
+.venv/
+.runtime/
+downloads/
+logs/
+state/
+models/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+*.egg-info/
