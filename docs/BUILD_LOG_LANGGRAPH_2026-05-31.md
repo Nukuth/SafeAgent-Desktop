@@ -448,3 +448,37 @@ result: 133 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; model_config passed; graph_runtime resolved_runtime=langgraph; stdlib_tests passed=133 failed=0
 ```
+
+## Local Env File Loading
+
+```text
+1. Added local_worker.env_file.
+2. WorkerSettings.from_env now loads E:\agents\.env.local by default.
+3. SAFEAGENT_ENV_FILE can point to another local env file.
+4. Current process environment overrides values from .env.local.
+5. .env.local and .env.local.* are ignored by Git.
+6. check_model_config.py uses the same env loading path as the worker.
+7. Invalid env file lines return validation.failed from local_worker.env_file.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_env_file.py tests\test_model_router.py -q
+result: 14 passed
+
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
+result: OK model config; deepseek ready=False reason=missing SAFEAGENT_DEEPSEEK_API_KEY
+
+.\.venv\Scripts\python.exe .\scripts\check_module_boundaries.py
+result: OK module boundaries
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 138 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; graph runtime resolved to langgraph; stdlib_tests passed=138 failed=0
+
+git check-ignore .env.local .env.local.test
+result: .env.local and .env.local.test are ignored
+```

@@ -115,3 +115,18 @@ def test_model_provider_config_status_does_not_expose_api_key():
     assert by_id["codex"]["ready"] is False
     assert by_id["codex"]["reason"] == "provider disabled in config"
     assert "sk-test-not-real" not in str(statuses)
+
+
+def test_model_provider_config_status_accepts_env_file_values(tmp_path):
+    from safeagent.local_worker.env_file import build_effective_env
+
+    env_file = tmp_path / ".env.local"
+    env_file.write_text("SAFEAGENT_DEEPSEEK_API_KEY=sk-test-not-real", encoding="utf-8")
+    statuses = model_provider_config_status(
+        Path("configs/models.json"),
+        env=build_effective_env(base_env={}, env_file=env_file),
+    )
+    by_id = {item["provider_id"]: item for item in statuses}
+    assert by_id["deepseek"]["ready"] is True
+    assert by_id["deepseek"]["api_key_source"] == "env"
+    assert "sk-test-not-real" not in str(statuses)

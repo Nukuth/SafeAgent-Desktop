@@ -8,6 +8,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from safeagent.local_worker.env_file import build_effective_env  # noqa: E402
 from safeagent.local_worker.providers import model_provider_config_status  # noqa: E402
 from safeagent.shared.errors import SafeAgentError  # noqa: E402
 
@@ -15,7 +16,7 @@ from safeagent.shared.errors import SafeAgentError  # noqa: E402
 def main() -> int:
     config_path = ROOT / "configs" / "models.json"
     try:
-        statuses = model_provider_config_status(config_path)
+        statuses = model_provider_config_status(config_path, env=build_effective_env(ROOT))
     except SafeAgentError as exc:
         print(f"FAIL {exc.envelope.code}: {exc.envelope.message}", file=sys.stderr)
         if exc.envelope.details:

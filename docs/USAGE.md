@@ -26,6 +26,42 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .[dev]
 ```
 
+## 本地私密环境变量
+
+本地长期使用的 token 和模型 API Key 可以放在：
+
+```text
+E:\agents\.env.local
+```
+
+这个文件已被 `.gitignore` 忽略，不应提交。格式是简单的 `KEY=VALUE`：
+
+```text
+SAFEAGENT_WORKER_TOKEN=replace-with-long-random-token
+SAFEAGENT_DEEPSEEK_API_KEY=你的 DeepSeek API Key
+SAFEAGENT_LOCAL_QWEN_API_KEY=local-no-key
+```
+
+加载优先级：
+
+```text
+1. 先读取 .env.local。
+2. 再叠加当前 PowerShell 环境变量。
+3. 如果两边都有同名 key，当前 PowerShell 环境变量优先。
+```
+
+如果 `.env.local` 不在默认位置，可以设置：
+
+```powershell
+$env:SAFEAGENT_ENV_FILE="E:\agents\.env.local"
+```
+
+检查模型 key 是否已被识别：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
+```
+
 ## 启动云端控制平面
 
 本地测试：

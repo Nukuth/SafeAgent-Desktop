@@ -52,6 +52,15 @@ API 返回：
 $env:SAFEAGENT_SERVER_TOKEN="change-me"
 ```
 
+也可以把长期本地 token 放进 `E:\agents\.env.local`：
+
+```text
+SAFEAGENT_SERVER_TOKEN=change-me
+SAFEAGENT_WORKER_TOKEN=worker-token
+```
+
+`.env.local` 已被 Git 忽略。当前 PowerShell 里显式设置的同名变量会覆盖 `.env.local`。
+
 请求时使用：
 
 ```text
@@ -980,7 +989,23 @@ provider=deepseek enabled=True ready=False ... reason=missing SAFEAGENT_DEEPSEEK
 $env:SAFEAGENT_DEEPSEEK_API_KEY="你的 DeepSeek API Key"
 ```
 
+长期本地使用时，也可以写入 `E:\agents\.env.local`：
+
+```text
+SAFEAGENT_DEEPSEEK_API_KEY=你的 DeepSeek API Key
+```
+
 如果 `api_key_source=default`，表示使用配置里的安全默认值，当前只建议用于本地 Qwen 的 `local-no-key`。
+
+如果 `.env.local` 格式写错，例如某一行没有 `=`，会返回：
+
+```text
+validation.failed
+module = local_worker.env_file
+message = Environment file line must use KEY=VALUE
+```
+
+处理方式是修正对应 `line_number`，不要在代码里硬编码密钥。
 
 如果日志中出现真实 API Key，这是安全缺陷，应立即停止 worker 并修复脱敏。
 

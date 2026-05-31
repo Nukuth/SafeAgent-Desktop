@@ -23,7 +23,10 @@ class LocalWorker:
         self.audit = JsonlAuditLog(settings.logs_dir / "worker.jsonl")
         self.client = ControlPlaneClient(settings.control_url, settings.token)
         agent_registry, profile_registry = load_default_registries(settings.config_dir)
-        provider_registry = build_provider_registry_from_config(settings.config_dir / "models.json")
+        provider_registry = build_provider_registry_from_config(
+            settings.config_dir / "models.json",
+            env=settings.provider_env,
+        )
         self.orchestrator = LocalOrchestrator(
             PolicyEngine(settings.workspace_root),
             agent_registry=agent_registry,
