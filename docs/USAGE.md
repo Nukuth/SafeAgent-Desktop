@@ -804,7 +804,30 @@ error：provider 出现未知异常，已转成结构化错误。
 
 ## Model Provider 未配置
 
-当前已经有 Model Router，但还没有接真实 DeepSeek/Codex adapter。
+模型端点和模型名配置在：
+
+```text
+configs/models.json
+configs/models.yaml
+```
+
+真实 API Key 不写入配置文件，只从本地环境变量读取。当前默认配置：
+
+```text
+local_qwen:
+  base_url = http://127.0.0.1:8000/v1
+  model = qwen-35b-local
+  api_key_env = SAFEAGENT_LOCAL_QWEN_API_KEY
+
+deepseek:
+  base_url = https://api.deepseek.com/v1
+  model = deepseek-chat
+  api_key_env = SAFEAGENT_DEEPSEEK_API_KEY
+
+codex:
+  默认 disabled
+  api_key_env = SAFEAGENT_CODEX_API_KEY
+```
 
 如果直接调用 NullProvider，会报：
 
@@ -813,7 +836,9 @@ provider.not_configured
 module = local_worker.providers
 ```
 
-这是预期行为，表示模型边界已经隔离，但供应商 API 尚未配置。当前节点 handler 会把它写入对应节点的 `model` 字段，`GraphRunner` 仍会继续完成本次 trace。
+这是预期行为，通常表示 `configs/models.json` 里对应 provider 未启用、base_url/model 为空，或者本地没有设置对应
+API Key 环境变量。节点 handler 会把错误写入对应节点的 `model` 字段，`GraphRunner` 仍会继续完成 trace，不会绕过
+policy / approval / executor gate。
 
 ## 本地 Qwen 应急模型
 
@@ -827,12 +852,11 @@ docs/LOCAL_QWEN.md
 
 ```powershell
 $env:SAFEAGENT_EMERGENCY_LOCAL_MODEL="true"
-$env:SAFEAGENT_LOCAL_QWEN_BASE_URL="http://127.0.0.1:8000/v1"
-$env:SAFEAGENT_LOCAL_QWEN_MODEL="qwen-35b-local"
 $env:SAFEAGENT_LOCAL_QWEN_API_KEY="local-no-key"
 ```
 
-开启后，普通任务会优先路由到 `local_qwen`。高风险任务仍不能由本地模型批准。
+`base_url` 和 `model` 在 `configs/models.json` 的 `local_qwen` 下配置。开启后，普通任务会优先路由到
+`local_qwen`。高风险任务仍不能由本地模型批准。
 
 本地模型主路线改为直接上 35B/32B 级 GGUF 4-bit 量化：
 

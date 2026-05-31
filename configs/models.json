@@ -1,0 +1,34 @@
+{
+  "providers": {
+    "local_qwen": {
+      "type": "openai_compatible",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:8000/v1",
+      "model": "qwen-35b-local",
+      "api_key_env": "SAFEAGENT_LOCAL_QWEN_API_KEY",
+      "default_api_key": "local-no-key",
+      "timeout_seconds": "60",
+      "system_prompt": "You are a local emergency assistant. Do not approve high-risk actions."
+    },
+    "deepseek": {
+      "type": "openai_compatible",
+      "enabled": true,
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "api_key_env": "SAFEAGENT_DEEPSEEK_API_KEY",
+      "default_api_key": "",
+      "timeout_seconds": "60",
+      "system_prompt": "You are a planning and coding assistant. Produce cautious, auditable outputs."
+    },
+    "codex": {
+      "type": "openai_compatible",
+      "enabled": false,
+      "base_url": "",
+      "model": "codex",
+      "api_key_env": "SAFEAGENT_CODEX_API_KEY",
+      "default_api_key": "",
+      "timeout_seconds": "60",
+      "system_prompt": "You are a critical reviewer. Identify risks and safer alternatives. Do not execute actions."
+    }
+  }
+}

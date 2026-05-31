@@ -42,6 +42,7 @@ def test_load_yaml_config_reports_missing_pyyaml_or_missing_file(tmp_path):
 def test_current_json_configs_are_valid():
     assert load_json_config(Path("configs/agents.json"))["agents"]
     assert load_json_config(Path("configs/profiles.json"))["profiles"]
+    assert load_json_config(Path("configs/models.json"))["providers"]
 
 
 def test_fallback_yaml_parser_handles_current_config_subset():
@@ -66,3 +67,4 @@ root:
 def test_current_yaml_configs_parse_without_pyyaml():
     assert parse_yaml_subset(Path("configs/agents.yaml").read_text(encoding="utf-8"))["agents"]
     assert parse_yaml_subset(Path("configs/profiles.yaml").read_text(encoding="utf-8"))["profiles"]
+    assert parse_yaml_subset(Path("configs/models.yaml").read_text(encoding="utf-8"))["providers"]

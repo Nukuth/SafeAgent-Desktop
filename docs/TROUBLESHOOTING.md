@@ -941,10 +941,11 @@ error.code = provider.not_configured
 ### 处理
 
 ```text
-1. DeepSeek 至少需要 SAFEAGENT_DEEPSEEK_BASE_URL、SAFEAGENT_DEEPSEEK_MODEL、SAFEAGENT_DEEPSEEK_API_KEY。
-2. Codex 至少需要 SAFEAGENT_CODEX_BASE_URL、SAFEAGENT_CODEX_MODEL、SAFEAGENT_CODEX_API_KEY。
-3. 本地 Qwen 至少需要 SAFEAGENT_LOCAL_QWEN_BASE_URL、SAFEAGENT_LOCAL_QWEN_MODEL、SAFEAGENT_LOCAL_QWEN_API_KEY。
-不要把 API Key 写入 configs 或云端数据库。
+1. base_url / model / enabled 配置在 configs/models.json。
+2. DeepSeek 至少需要 configs/models.json 里的 deepseek 配置 + SAFEAGENT_DEEPSEEK_API_KEY。
+3. Codex 至少需要 configs/models.json 里的 codex enabled=true + SAFEAGENT_CODEX_API_KEY。
+4. 本地 Qwen 至少需要 configs/models.json 里的 local_qwen 配置 + SAFEAGENT_LOCAL_QWEN_API_KEY。
+5. 不要把真实 API Key 写入 configs、云端数据库或日志。
 ```
 
 当前日志只允许记录：
@@ -956,6 +957,15 @@ error.code = provider.not_configured
 4. has_api_key = true / false
 5. timeout_seconds
 ```
+
+修改模型配置后先运行：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\check_config_sync.py
+```
+
+如果看到 `Model config must not contain real API keys`，说明把真实 key 写进了 `configs/models.json`，应立即删除，
+改为设置本地环境变量。
 
 如果日志中出现真实 API Key，这是安全缺陷，应立即停止 worker 并修复脱敏。
 

@@ -54,7 +54,7 @@ POST http://127.0.0.1:8000/v1/chat/completions
 }
 ```
 
-如果你的本地服务端口、路径或模型名不同，只需要改环境变量。
+如果你的本地服务端口、路径或模型名不同，修改 `configs/models.json` 里的 `local_qwen`，不要把真实密钥写进配置。
 
 ## 低内存 35B 部署建议
 
@@ -127,13 +127,26 @@ E:\agents\models
 
 不要放到系统盘或临时下载目录。
 
-## 环境变量
+## 配置和环境变量
 
-PowerShell 示例：
+模型地址和模型名在这里配置：
+
+```text
+configs/models.json
+configs/models.yaml
+```
+
+默认 `local_qwen`：
+
+```text
+base_url = http://127.0.0.1:8000/v1
+model = qwen-35b-local
+api_key_env = SAFEAGENT_LOCAL_QWEN_API_KEY
+```
+
+PowerShell 示例只需要设置本地 key 和应急模式：
 
 ```powershell
-$env:SAFEAGENT_LOCAL_QWEN_BASE_URL="http://127.0.0.1:8000/v1"
-$env:SAFEAGENT_LOCAL_QWEN_MODEL="qwen-35b-local"
 $env:SAFEAGENT_LOCAL_QWEN_API_KEY="local-no-key"
 $env:SAFEAGENT_EMERGENCY_LOCAL_MODEL="true"
 ```
@@ -141,10 +154,10 @@ $env:SAFEAGENT_EMERGENCY_LOCAL_MODEL="true"
 含义：
 
 ```text
-SAFEAGENT_LOCAL_QWEN_BASE_URL：
+configs/models.json local_qwen.base_url：
 本地 OpenAI-compatible API base URL。
 
-SAFEAGENT_LOCAL_QWEN_MODEL：
+configs/models.json local_qwen.model：
 本地服务识别的模型名。
 
 SAFEAGENT_LOCAL_QWEN_API_KEY：
@@ -165,8 +178,6 @@ $env:SAFEAGENT_WORKER_TOKEN="change-me"
 $env:SAFEAGENT_DEVICE_ID="local-pc-1"
 $env:SAFEAGENT_WORKSPACE_ROOT="E:\agents"
 $env:SAFEAGENT_EMERGENCY_LOCAL_MODEL="true"
-$env:SAFEAGENT_LOCAL_QWEN_BASE_URL="http://127.0.0.1:8000/v1"
-$env:SAFEAGENT_LOCAL_QWEN_MODEL="qwen-35b-local"
 $env:SAFEAGENT_LOCAL_QWEN_API_KEY="local-no-key"
 .\.venv\Scripts\python.exe -m safeagent.local_worker.worker
 ```

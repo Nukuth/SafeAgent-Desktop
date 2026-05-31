@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
+from pathlib import Path
+from collections.abc import Mapping
 from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from safeagent.local_worker.config_sync import load_json_config
 from safeagent.shared.errors import SafeAgentError, TransientUpstreamError, ValidationError
 from safeagent.shared.enums import Severity
 
@@ -145,6 +149,22 @@ class OpenAICompatibleLocalProvider(OpenAICompatibleProvider):
     """Compatibility alias for local OpenAI-compatible chat APIs."""
 
 
+@dataclass(frozen=True, slots=True)
+class ModelProviderSpec:
+    provider_id: str
+    provider_type: str
+    enabled: bool
+    base_url: str
+    model: str
+    api_key_env: str
+    default_api_key: str = ""
+    timeout_seconds: float = 60.0
+    system_prompt: str = "You are a careful assistant. Do not approve high-risk actions."
+
+    def api_key_from_env(self, env: Mapping[str, str]) -> str:
+        return env.get(self.api_key_env, self.default_api_key)
+
+
 class ProviderRegistry:
     def __init__(self, providers: dict[str, ModelProvider] | None = None) -> None:
         self.providers = providers or {}
@@ -164,6 +184,83 @@ class ProviderRegistry:
             else:
                 status[model] = {"provider_id": model, "configured": True}
         return status
+
+
+def load_model_provider_specs(config_path: Path) -> dict[str, ModelProviderSpec]:
+    data = load_json_config(config_path)
+    if not isinstance(data, dict) or not isinstance(data.get("providers"), dict):
+        raise ValidationError(
+            "local_worker.providers",
+            "Model config must contain a providers object",
+            {"path": str(config_path)},
+        )
+
+    specs: dict[str, ModelProviderSpec] = {}
+    for provider_id, raw in data["providers"].items():
+        if not isinstance(raw, dict):
+            raise ValidationError(
+                "local_worker.providers",
+                "Model provider config must be an object",
+                {"path": str(config_path), "provider_id": str(provider_id)},
+            )
+        default_api_key = str(raw.get("default_api_key", ""))
+        if _looks_like_secret(default_api_key):
+            raise ValidationError(
+                "local_worker.providers",
+                "Model config must not contain real API keys",
+                {"path": str(config_path), "provider_id": str(provider_id), "field": "default_api_key"},
+            )
+        try:
+            specs[str(provider_id)] = ModelProviderSpec(
+                provider_id=str(provider_id),
+                provider_type=str(raw["type"]),
+                enabled=bool(raw.get("enabled", True)),
+                base_url=str(raw.get("base_url", "")),
+                model=str(raw.get("model", "")),
+                api_key_env=str(raw["api_key_env"]),
+                default_api_key=default_api_key,
+                timeout_seconds=float(raw.get("timeout_seconds", "60")),
+                system_prompt=str(raw.get("system_prompt", "")),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValidationError(
+                "local_worker.providers",
+                "Model provider config is invalid",
+                {"path": str(config_path), "provider_id": str(provider_id), "error": str(exc)},
+            ) from exc
+
+    return specs
+
+
+def build_provider_registry_from_config(
+    config_path: Path,
+    env: Mapping[str, str] | None = None,
+) -> ProviderRegistry:
+    effective_env = os.environ if env is None else env
+    providers: dict[str, ModelProvider] = {}
+    for provider_id, spec in load_model_provider_specs(config_path).items():
+        if not spec.enabled:
+            continue
+        if spec.provider_type != "openai_compatible":
+            raise ValidationError(
+                "local_worker.providers",
+                "Unsupported model provider type",
+                {"provider_id": provider_id, "provider_type": spec.provider_type},
+            )
+        api_key = spec.api_key_from_env(effective_env)
+        if not (spec.base_url.strip() and spec.model.strip() and api_key):
+            continue
+        provider_config = OpenAICompatibleProviderConfig(
+            provider_id=provider_id,
+            base_url=spec.base_url,
+            api_key=api_key,
+            model=spec.model,
+            timeout_seconds=spec.timeout_seconds,
+            system_prompt=spec.system_prompt,
+        )
+        provider_cls = OpenAICompatibleLocalProvider if provider_id == "local_qwen" else OpenAICompatibleProvider
+        providers[provider_id] = provider_cls(provider_config)
+    return ProviderRegistry(providers)
 
 
 def build_provider_registry(
@@ -214,3 +311,8 @@ def build_provider_registry(
             )
         )
     return ProviderRegistry(providers)
+
+
+def _looks_like_secret(value: str) -> bool:
+    lowered = value.lower()
+    return value.startswith("sk-") or "bearer " in lowered or "api_key" in lowered or "password" in lowered

@@ -9,6 +9,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from safeagent.local_worker.config_sync import compare_config_pairs  # noqa: E402
+from safeagent.local_worker.providers import load_model_provider_specs  # noqa: E402
 from safeagent.local_worker.registry import load_default_registries  # noqa: E402
 from safeagent.shared.errors import SafeAgentError  # noqa: E402
 
@@ -18,10 +19,12 @@ def main() -> int:
     pairs = [
         (config_dir / "agents.yaml", config_dir / "agents.json"),
         (config_dir / "profiles.yaml", config_dir / "profiles.json"),
+        (config_dir / "models.yaml", config_dir / "models.json"),
     ]
     try:
         mismatches = compare_config_pairs(pairs)
         load_default_registries(config_dir)
+        load_model_provider_specs(config_dir / "models.json")
     except SafeAgentError as exc:
         print(f"FAIL {exc.envelope.code}: {exc.envelope.message}", file=sys.stderr)
         if exc.envelope.details:

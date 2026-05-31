@@ -5,7 +5,7 @@ import asyncio
 from safeagent.local_worker.client import ControlPlaneClient
 from safeagent.local_worker.orchestrator import LocalOrchestrator
 from safeagent.local_worker.policy import PolicyEngine
-from safeagent.local_worker.providers import build_provider_registry
+from safeagent.local_worker.providers import build_provider_registry_from_config
 from safeagent.local_worker.registry import load_default_registries
 from safeagent.local_worker.settings import WorkerSettings
 from safeagent.shared.audit_log import JsonlAuditLog
@@ -23,18 +23,7 @@ class LocalWorker:
         self.audit = JsonlAuditLog(settings.logs_dir / "worker.jsonl")
         self.client = ControlPlaneClient(settings.control_url, settings.token)
         agent_registry, profile_registry = load_default_registries(settings.config_dir)
-        provider_registry = build_provider_registry(
-            local_qwen_base_url=settings.local_qwen_base_url,
-            local_qwen_model=settings.local_qwen_model,
-            local_qwen_api_key=settings.local_qwen_api_key,
-            deepseek_base_url=settings.deepseek_base_url,
-            deepseek_model=settings.deepseek_model,
-            deepseek_api_key=settings.deepseek_api_key,
-            codex_base_url=settings.codex_base_url,
-            codex_model=settings.codex_model,
-            codex_api_key=settings.codex_api_key,
-            timeout_seconds=settings.model_timeout_seconds,
-        )
+        provider_registry = build_provider_registry_from_config(settings.config_dir / "models.json")
         self.orchestrator = LocalOrchestrator(
             PolicyEngine(settings.workspace_root),
             agent_registry=agent_registry,

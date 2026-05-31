@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from safeagent.local_worker.model_router import ModelRouter
 from safeagent.local_worker.providers import (
     ModelRequest,
     NullProvider,
     ProviderNotConfiguredError,
     build_provider_registry,
+    build_provider_registry_from_config,
+    load_model_provider_specs,
 )
 from safeagent.shared.enums import RiskLevel
 
@@ -69,3 +73,26 @@ def test_provider_registry_builds_only_configured_remote_models():
     assert "deepseek" not in status
     assert "codex" not in status
     assert status["local_qwen"]["model"] == "qwen-35b-local"
+
+
+def test_model_provider_specs_load_from_config_without_secret_values():
+    specs = load_model_provider_specs(Path("configs/models.json"))
+    assert specs["deepseek"].api_key_env == "SAFEAGENT_DEEPSEEK_API_KEY"
+    assert specs["deepseek"].default_api_key == ""
+    assert specs["local_qwen"].model == "qwen-35b-local"
+
+
+def test_provider_registry_uses_config_and_env_only_api_keys():
+    registry = build_provider_registry_from_config(
+        Path("configs/models.json"),
+        env={
+            "SAFEAGENT_LOCAL_QWEN_API_KEY": "local-no-key",
+            "SAFEAGENT_DEEPSEEK_API_KEY": "sk-test-not-real",
+        },
+    )
+    status = registry.public_status()
+    assert "local_qwen" in status
+    assert "deepseek" in status
+    assert "codex" not in status
+    assert status["deepseek"]["has_api_key"] is True
+    assert "sk-test-not-real" not in str(status)

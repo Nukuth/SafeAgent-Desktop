@@ -380,3 +380,38 @@ result: 129 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=129 failed=0
 ```
+
+## Configured Model Providers
+
+```text
+1. Added configs/models.json and configs/models.yaml.
+2. Model base URLs, model names, system prompts, and api_key_env names now live in config.
+3. Real API keys remain environment-only and are not written to config.
+4. Worker now builds ProviderRegistry from configs/models.json.
+5. local_qwen defaults to qwen-35b-local at http://127.0.0.1:8000/v1.
+6. deepseek defaults to deepseek-chat at https://api.deepseek.com/v1 and requires SAFEAGENT_DEEPSEEK_API_KEY.
+7. codex stays disabled by default until configs/models.json enables it and SAFEAGENT_CODEX_API_KEY is set.
+8. check_config_sync now includes models.yaml/models.json and validates provider config shape.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe .\scripts\check_config_sync.py
+result: OK config YAML/JSON sync and registry security contracts
+
+.\.venv\Scripts\python.exe -m pytest tests\test_config_sync.py tests\test_model_router.py tests\test_local_provider.py -q
+result: 16 passed
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe -m pytest tests\test_config_sync.py tests\test_model_router.py tests\test_local_provider.py tests\test_worker.py -q
+result: 19 passed
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 131 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; graph_runtime resolved_runtime=langgraph; stdlib_tests passed=131 failed=0
+```
