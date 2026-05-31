@@ -200,9 +200,10 @@ python .\scripts\doctor.py --quick
 
 ```text
 1. YAML/JSON 配置同步。
-2. registry 安全契约。
-3. 本地闭环 smoke test。
-4. compileall。
+2. config_permission_review 权限升级审查。
+3. registry 安全契约。
+4. 本地闭环 smoke test。
+5. compileall。
 ```
 
 完整自检：
@@ -486,7 +487,24 @@ message = Profile <id> references unknown agents
 ```powershell
 cd E:\agents
 python .\scripts\check_config_sync.py
+python .\scripts\review_config_permissions.py
 python .\scripts\doctor.py --quick
+```
+
+`review_config_permissions.py` 会输出 `blocking` 和 `warning`：
+
+```text
+blocking：配置不能进入下一步，必须先修。
+warning：当前设计允许，但属于敏感面，需要人工确认你确实要这样配置。
+```
+
+典型 warning：
+
+```text
+agent.executor_boundary：executor 持有本地执行/写入权限，这是唯一允许的执行边界。
+profile.remote_executor：远程可提交任务的 profile 能到达 executor，必须保留 human_approval -> executor approved 边。
+agent.network_enabled：search_agent 具备 search_only 联网能力，不能升级成下载或执行。
+model.codex_disabled：Codex provider 仍关闭，高风险审查路线当前不能当作真实 Codex 审查。
 ```
 
 如果涉及执行、写入、联网、下载、Codex 审查路径，还要补测试后运行：
@@ -516,6 +534,7 @@ configs/profiles.yaml
 ```powershell
 cd E:\agents
 python .\scripts\check_config_sync.py
+python .\scripts\review_config_permissions.py
 ```
 
 通过时应看到：
@@ -530,6 +549,7 @@ OK config YAML/JSON sync and registry security contracts
 1. YAML 和 JSON 语义是否一致。
 2. registry 是否能加载。
 3. agent/profile 安全契约是否通过。
+4. 权限、联网、远程执行路径、模型默认 key 是否存在阻断项。
 ```
 
 如果没有安装 PyYAML，脚本会使用项目内置的保守 YAML 子集解析器。该解析器只支持当前配置文件使用的格式，不适合作为通用 YAML 解析器。

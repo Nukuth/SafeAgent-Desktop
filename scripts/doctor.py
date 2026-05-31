@@ -25,6 +25,7 @@ def main() -> int:
 
     checks = [
         ("config_sync", [sys.executable, str(ROOT / "scripts" / "check_config_sync.py")]),
+        ("config_permission_review", [sys.executable, str(ROOT / "scripts" / "review_config_permissions.py")]),
         ("model_config", [sys.executable, str(ROOT / "scripts" / "check_model_config.py")]),
         ("module_boundaries", [sys.executable, str(ROOT / "scripts" / "check_module_boundaries.py")]),
         ("error_catalog", [sys.executable, str(ROOT / "scripts" / "check_error_catalog.py")]),

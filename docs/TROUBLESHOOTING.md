@@ -497,8 +497,9 @@ Profiles containing network-enabled agents must use search_allowed network mode
 3. 如果需要新增下载或写文件能力，应新增 profile 和策略测试，而不是直接改现有契约。
 4. 修改 JSON 后同步 YAML。
 5. 运行 python .\scripts\check_config_sync.py。
-6. 运行 python .\scripts\doctor.py --quick。
-7. 如果涉及执行、写入、联网或下载，再运行 python .\scripts\doctor.py。
+6. 运行 python .\scripts\review_config_permissions.py。
+7. 运行 python .\scripts\doctor.py --quick。
+8. 如果涉及执行、写入、联网或下载，再运行 python .\scripts\doctor.py。
 ```
 
 如果你只是新增普通规划/审查 agent，先使用：
@@ -546,6 +547,56 @@ FAIL config YAML/JSON mismatch
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e .[dev]
 .\.venv\Scripts\python.exe .\scripts\check_config_sync.py
+```
+
+## 配置权限审查失败
+
+### 现象
+
+运行：
+
+```powershell
+python .\scripts\review_config_permissions.py
+```
+
+看到：
+
+```text
+blocking=1
+BLOCKING config.yaml_json_mismatch
+BLOCKING model.default_api_key
+BLOCKING config.validation_failed
+```
+
+### 原因
+
+`review_config_permissions.py` 是配置升级审查，不只是格式检查。它会检查：
+
+```text
+1. YAML/JSON 是否同步。
+2. agent/profile registry 安全契约是否仍然成立。
+3. 远程 model provider 是否把默认 API Key 写进 configs。
+4. 远程可提交 profile 是否能到达 executor。
+5. 联网 agent 和非默认 network_mode 是否被显式暴露。
+```
+
+### 处理
+
+```text
+1. blocking 必须修复后再继续。
+2. warning 不代表失败，但代表敏感面，需要人工确认。
+3. model.default_api_key 表示应删除 configs/models.json 里的默认 key，改用 .env.local 或本地环境变量。
+4. config.yaml_json_mismatch 表示先同步 configs/*.yaml 和 configs/*.json。
+5. config.validation_failed 表示 registry 或 provider schema 已经不安全，先看 details.module 和 details。
+```
+
+当前常见 warning 是预期的敏感提示：
+
+```text
+agent.executor_boundary：executor 是唯一执行边界。
+profile.remote_executor：远程可提交 profile 能到达 executor，但必须保留审批边。
+agent.network_enabled：search_agent 只能 search_only，不能下载。
+model.codex_disabled：Codex provider 尚未启用，不能把高风险审查当成真实 Codex 审查。
 ```
 
 ## 本地 smoke test 失败
@@ -614,6 +665,7 @@ doctor 是聚合入口，失败点会显示在 check 名称上：
 
 ```text
 config_sync：配置不同步或 registry 安全契约失败。
+config_permission_review：配置权限、联网、远程执行或模型默认 key 审查失败。
 module_boundaries：server/shared/local_worker import 边界被破坏。
 local_smoke：本地任务/approval/policy 闭环失败。
 compileall：Python 语法或导入编译失败。

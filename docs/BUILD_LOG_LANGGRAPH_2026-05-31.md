@@ -482,3 +482,33 @@ result: OK doctor checks; graph runtime resolved to langgraph; stdlib_tests pass
 git check-ignore .env.local .env.local.test
 result: .env.local and .env.local.test are ignored
 ```
+
+## Config Permission Review
+
+```text
+1. Added local_worker.config_review.
+2. Added scripts/review_config_permissions.py.
+3. Doctor now runs config_permission_review after config_sync.
+4. The review produces blocking findings for YAML/JSON mismatch, registry validation failures, and remote model default API keys.
+5. The review produces warnings for known sensitive surfaces: executor boundary, remote profiles that can reach executor, search-only network agents, non-default network modes, and disabled Codex provider.
+6. JSON output is available with --json for future UI or automation.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_config_review.py tests\test_config_sync.py tests\test_doctor.py tests\test_registry.py -q
+result: 22 passed
+
+.\.venv\Scripts\python.exe .\scripts\review_config_permissions.py
+result: blocking=0 warning=7; OK config permission review
+
+.\.venv\Scripts\python.exe .\scripts\review_config_permissions.py --json
+result: pure JSON report; blocking_count=0 warning_count=7
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 142 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; config_permission_review passed; stdlib_tests passed=142 failed=0
+```
