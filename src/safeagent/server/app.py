@@ -3,8 +3,8 @@ from typing import Any
 from safeagent.server.db import TaskStore
 from safeagent.server.settings import ServerSettings
 from safeagent.shared.auth import require_bearer_token
-from safeagent.shared.enums import EventType, NetworkMode, RemotePermission, RiskLevel, TaskStatus
-from safeagent.shared.errors import SafeAgentError
+from safeagent.shared.enums import EventType, NetworkMode, RemotePermission, RiskLevel, Severity, TaskStatus
+from safeagent.shared.errors import ErrorEnvelope, SafeAgentError
 from safeagent.shared.redaction import redact_payload
 from safeagent.shared.remote_permissions import (
     require_approval_permission,
@@ -17,6 +17,7 @@ from safeagent.shared.schemas import ApprovalRecord, RunEvent, TaskCreate
 def create_app():  # type: ignore[no-untyped-def]
     try:
         from fastapi import Depends, FastAPI, Header, HTTPException
+        from fastapi.exceptions import RequestValidationError
         from fastapi.responses import JSONResponse
         from pydantic import BaseModel, Field
     except ImportError as exc:  # pragma: no cover - exercised only without dependencies
@@ -61,6 +62,30 @@ def create_app():  # type: ignore[no-untyped-def]
     @app.exception_handler(SafeAgentError)
     async def safeagent_error_handler(_request, exc: SafeAgentError):  # type: ignore[no-untyped-def]
         return JSONResponse(status_code=400, content={"error": redact_payload(exc.envelope.to_dict())})
+
+    @app.exception_handler(HTTPException)
+    async def http_error_handler(_request, exc: HTTPException):  # type: ignore[no-untyped-def]
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": _api_validation_error(
+                    message="API request failed validation",
+                    details={"http_status": exc.status_code, "detail": exc.detail},
+                )
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error_handler(_request, exc: RequestValidationError):  # type: ignore[no-untyped-def]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": _api_validation_error(
+                    message="API request body or parameters failed validation",
+                    details={"errors": exc.errors()},
+                )
+            },
+        )
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -152,3 +177,16 @@ def create_app():  # type: ignore[no-untyped-def]
         return store.get_run(run_id)
 
     return app
+
+
+def _api_validation_error(message: str, details: dict[str, Any]) -> dict[str, Any]:
+    return redact_payload(
+        ErrorEnvelope(
+            code="validation.failed",
+            module="server.app",
+            message=message,
+            severity=Severity.WARNING,
+            retriable=False,
+            details=details,
+        ).to_dict()
+    )

@@ -1141,3 +1141,32 @@ auth.failed
 3. 确认两个 token 在正式部署中不同。
 4. 本地开发为了兼容可以不设置 SAFEAGENT_WORKER_TOKEN，此时会退回 server token，但远程部署不要这样做。
 ```
+
+## API 返回 validation.failed
+
+控制面 API 会把 FastAPI 的请求体错误、查询参数错误和手写 `HTTPException` 都转换成统一的
+SafeAgent 错误信封：
+
+```text
+error.code = validation.failed
+error.module = server.app
+error.message = API request failed validation
+```
+
+常见原因：
+
+```text
+1. POST /api/tasks 缺少 content 或 device_id。
+2. POST /api/tasks/{task_id}/events 使用未知 event_type / risk_level / network_mode。
+3. POST /api/tasks/{task_id}/status 使用未知 status。
+4. approval decision 不是 approved 或 rejected。
+```
+
+排查方式：
+
+```text
+1. 查看 error.details.http_status 或 error.details.errors。
+2. 不要依赖 FastAPI 默认 detail 字段；统一读取 error 字段。
+3. 如果 details 中出现 [REDACTED]，说明请求体里带了 token / api_key / secret。
+4. 先修正请求 payload，不要在 server 端放宽校验。
+```

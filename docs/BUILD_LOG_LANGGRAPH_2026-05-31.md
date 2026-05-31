@@ -241,3 +241,29 @@ result: passed=120 failed=0
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=120 failed=0
 ```
+
+## API Error Envelope
+
+```text
+1. Added server.app handlers for HTTPException and RequestValidationError.
+2. API validation and HTTP errors now return {"error": ErrorEnvelope}.
+3. API error details are redacted before returning to clients.
+4. Invalid event_type, risk_level, network_mode, status, and malformed request bodies now use validation.failed.
+5. Added tests for API error-envelope shape and redaction.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_server_app.py -q
+result: 3 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 121 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=121 failed=0
+```

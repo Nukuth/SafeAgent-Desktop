@@ -42,6 +42,14 @@ def assert_auth_failed(response) -> None:
     assert response.json()["error"]["code"] == "auth.failed"
 
 
+def assert_validation_failed(response) -> None:
+    assert response.status_code == 422
+    body = response.json()
+    assert set(body) == {"error"}
+    assert body["error"]["code"] == "validation.failed"
+    assert body["error"]["module"] == "server.app"
+
+
 def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
     with patched_env(
         {
@@ -107,6 +115,61 @@ def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
         )
         assert status_response.status_code == 200
         assert status_response.json()["status"] == "completed"
+
+
+def test_api_validation_errors_use_error_envelope_and_redaction(tmp_path):
+    with patched_env(
+        {
+            "SAFEAGENT_SERVER_TOKEN": "remote-token",
+            "SAFEAGENT_WORKER_TOKEN": "worker-token",
+            "SAFEAGENT_DB_PATH": str(tmp_path / "server.sqlite3"),
+        }
+    ):
+        client = make_client(tmp_path)
+
+        missing_body = client.post(
+            "/api/tasks",
+            headers=remote_headers(),
+            json={"device_id": "pc-1", "remote_permission": "submit_task"},
+        )
+        assert_validation_failed(missing_body)
+
+        task_response = client.post(
+            "/api/tasks",
+            headers=remote_headers(),
+            json={
+                "content": "inspect workspace",
+                "device_id": "pc-1",
+                "remote_permission": "submit_task",
+            },
+        )
+        assert task_response.status_code == 200
+        task_id = task_response.json()["task"]["task_id"]
+        client.get("/api/tasks/pending?device_id=pc-1", headers=worker_headers())
+
+        invalid_event = client.post(
+            f"/api/tasks/{task_id}/events",
+            headers=worker_headers(),
+            json={
+                "run_id": "run_1",
+                "agent": "tester",
+                "event_type": "not_a_real_event",
+                "summary": "Bearer abcdefghijklmnop",
+                "risk_level": "low",
+                "network_mode": "api_only",
+                "details": {"api_key": "sk-abcdefghijklmnopqrstuvwxyz"},
+            },
+        )
+        assert_validation_failed(invalid_event)
+        assert "sk-abcdefghijklmnopqrstuvwxyz" not in str(invalid_event.json())
+        assert "Bearer abcdefghijklmnop" not in str(invalid_event.json())
+
+        invalid_status = client.post(
+            f"/api/tasks/{task_id}/status",
+            headers=worker_headers(),
+            json={"status": "not_a_status"},
+        )
+        assert_validation_failed(invalid_status)
 
 
 def test_remote_approval_is_not_a_worker_route(tmp_path):

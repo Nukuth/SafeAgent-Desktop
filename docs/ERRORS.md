@@ -31,6 +31,11 @@ worker.report_failed
 worker.task_failed
 ```
 
+`validation.failed` is also used for FastAPI request-body, query-parameter, and
+HTTP validation failures. API callers should always read the top-level
+`error.code`, `error.module`, and `error.details` fields instead of relying on
+FastAPI's default `detail` shape.
+
 ## Rules
 
 ```text
