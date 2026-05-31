@@ -32,6 +32,22 @@ def test_redaction_masks_secret_keys_and_values():
     assert redacted["note"] == "[REDACTED]"
 
 
+def test_redaction_preserves_safe_audit_identifiers():
+    payload = {
+        "task_id": "task_1234567890abcdef1234567890abcdef",
+        "run_id": "run_1234567890abcdef1234567890abcdef",
+        "approval_id": "approval_1234567890abcdef1234567890abcdef",
+        "plan_hash": "a" * 64,
+        "api_key": "sk-abc123456789XYZ",
+    }
+    redacted = redact_payload(payload)
+    assert redacted["task_id"] == payload["task_id"]
+    assert redacted["run_id"] == payload["run_id"]
+    assert redacted["approval_id"] == payload["approval_id"]
+    assert redacted["plan_hash"] == payload["plan_hash"]
+    assert redacted["api_key"] == "[REDACTED]"
+
+
 def test_jsonl_audit_log_redacts(tmp_path: Path):
     path = tmp_path / "audit.jsonl"
     log = JsonlAuditLog(path)
@@ -39,4 +55,3 @@ def test_jsonl_audit_log_redacts(tmp_path: Path):
     text = path.read_text(encoding="utf-8")
     assert "[REDACTED]" in text
     assert "secret" not in text
-

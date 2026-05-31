@@ -95,3 +95,4 @@ python -m safeagent.local_worker.worker
 - External writes, deletes, installs, and downloads are gated by policy.
 - Downloads are only allowed under `E:\agents\downloads`.
 - Full logs stay local under `E:\agents\logs`; cloud events are redacted summaries.
+- The server store redacts task content, event payloads, approvals, and heartbeats before SQLite persistence.

@@ -59,7 +59,7 @@ def create_app():  # type: ignore[no-untyped-def]
 
     @app.exception_handler(SafeAgentError)
     async def safeagent_error_handler(_request, exc: SafeAgentError):  # type: ignore[no-untyped-def]
-        return JSONResponse(status_code=400, content={"error": exc.envelope.to_dict()})
+        return JSONResponse(status_code=400, content={"error": redact_payload(exc.envelope.to_dict())})
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -130,7 +130,7 @@ def create_app():  # type: ignore[no-untyped-def]
             task_id,
             TaskStatus.PENDING if body.decision == "approved" else TaskStatus.REJECTED,
         )
-        return {"approval": approval.to_dict()}
+        return {"approval": redact_payload(approval.to_dict())}
 
     @app.get("/api/tasks/{task_id}/approval/latest", dependencies=[Depends(require_auth)])
     def latest_approval(task_id: str) -> dict[str, Any]:

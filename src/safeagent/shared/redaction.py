@@ -9,6 +9,16 @@ SECRET_VALUE_RE = re.compile(
     r"(sk-[A-Za-z0-9_-]{12,}|Bearer\s+[A-Za-z0-9._-]{12,}|[A-Za-z0-9_-]{32,})"
 )
 
+SAFE_IDENTIFIER_KEYS = {
+    "approval_id",
+    "command_hash",
+    "device_id",
+    "event_id",
+    "plan_hash",
+    "run_id",
+    "task_id",
+}
+
 
 def redact_text(value: str) -> str:
     return SECRET_VALUE_RE.sub("[REDACTED]", value)
@@ -27,8 +37,9 @@ def redact_payload(value: Any) -> Any:
             key_text = str(key)
             if SECRET_KEY_RE.search(key_text):
                 redacted[key_text] = "[REDACTED]"
+            elif key_text in SAFE_IDENTIFIER_KEYS:
+                redacted[key_text] = item
             else:
                 redacted[key_text] = redact_payload(item)
         return redacted
     return value
-

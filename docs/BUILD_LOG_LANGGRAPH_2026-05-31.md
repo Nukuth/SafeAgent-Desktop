@@ -182,3 +182,29 @@ result: OK doctor checks; error_catalog registered_codes=9; graph_runtime resolv
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=116 failed=0
 ```
+
+## Cloud Store Redaction Boundary
+
+```text
+1. Added TaskStore-level redaction before SQLite persistence.
+2. Redacts remote task content before claim_pending returns it to the worker.
+3. Redacts event summaries/details before storing payload_json.
+4. Redacts approval payloads before storing payload_json.
+5. Redacts heartbeat payloads before storing payload_json.
+6. Redacts SafeAgentError API responses at the FastAPI handler boundary.
+7. Preserves audit identifiers such as task_id, run_id, approval_id, plan_hash, and command_hash.
+8. Added tests proving secrets do not appear in persisted cloud SQLite payloads.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_shared.py tests\test_server_store.py -q
+result: 11 passed
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 118 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=118 failed=0
+```

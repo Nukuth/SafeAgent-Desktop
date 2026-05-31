@@ -1080,3 +1080,28 @@ Local model endpoint is unreachable
 ### 处理
 
 这是预期行为。不要为了调试而关闭脱敏；如果需要排查，只在本地临时、安全地检查原始配置。
+
+## 云端任务、事件或 approval 里出现 [REDACTED]
+
+这是预期行为。
+
+控制面数据库是远程控制平面，不是完整本地日志仓库。`TaskStore` 在写入 SQLite 前会对这些内容做最后一道脱敏：
+
+```text
+1. task.content
+2. event.summary
+3. event.details
+4. approval payload
+5. heartbeat payload
+6. SafeAgentError API response
+```
+
+排查方式：
+
+```text
+1. 如果云端摘要里出现 [REDACTED]，先假设远程输入或本地事件包含 token / api_key / secret。
+2. 不要把 DeepSeek、Codex、本地模型 API Key 放进远程任务内容。
+3. 完整敏感上下文只允许留在本地 E:\agents\logs。
+4. task_id / run_id / approval_id / plan_hash / command_hash 会保留，用于审计和追踪。
+5. 如果这些审计 ID 被脱敏，说明 redaction 安全白名单出错，应运行 tests\test_shared.py 和 tests\test_server_store.py。
+```

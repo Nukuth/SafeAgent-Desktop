@@ -1,3 +1,6 @@
+import json
+import sqlite3
+
 from safeagent.server.db import TaskStore
 from safeagent.shared.enums import EventType, TaskStatus
 from safeagent.shared.errors import ValidationError
@@ -81,3 +84,57 @@ def test_task_store_allows_worker_status_path(tmp_path):
     store.update_task_status(task.task_id, TaskStatus.COMPLETED)
     run = store.get_run("missing_run")
     assert run["diagnostics"]["status"] == "not_found"
+
+
+def test_task_store_redacts_cloud_persisted_payloads(tmp_path):
+    db_path = tmp_path / "server.sqlite3"
+    store = TaskStore(db_path)
+    secret = "sk-abcdefghijklmnopqrstuvwxyz"
+
+    task = store.create_task(
+        TaskCreate(
+            content=f"please use {secret}",
+            device_id="pc-1",
+        )
+    )
+    claimed = store.claim_pending("pc-1")
+    assert claimed[0]["content"] == "please use [REDACTED]"
+
+    store.append_event(
+        RunEvent(
+            task_id=task.task_id,
+            run_id="run_secret",
+            agent="tester",
+            event_type=EventType.RUN_FAILED,
+            summary=f"failed with Bearer abcdefghijklmnop",
+            details={"api_key": secret, "note": f"token {secret}"},
+        )
+    )
+    store.record_approval(
+        ApprovalRecord(
+            task_id=task.task_id,
+            run_id="run_secret",
+            decision="approved",
+            approved_by=f"operator {secret}",
+        )
+    )
+    store.heartbeat("pc-1", {"token": secret, "status": "online"})
+
+    conn = sqlite3.connect(db_path)
+    try:
+        persisted = "\n".join(
+            item
+            for item in [
+                conn.execute("select content from tasks").fetchone()[0],
+                conn.execute("select payload_json from events").fetchone()[0],
+                conn.execute("select payload_json from approvals").fetchone()[0],
+                conn.execute("select payload_json from heartbeats").fetchone()[0],
+            ]
+        )
+    finally:
+        conn.close()
+    assert secret not in persisted
+    assert "[REDACTED]" in persisted
+
+    run = store.get_run("run_secret")
+    assert secret not in json.dumps(run, ensure_ascii=False)

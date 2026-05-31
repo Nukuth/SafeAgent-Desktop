@@ -10,6 +10,7 @@ from typing import Any
 from safeagent.shared.enums import TaskStatus
 from safeagent.shared.diagnostics import build_run_diagnostics
 from safeagent.shared.errors import ValidationError
+from safeagent.shared.redaction import redact_payload
 from safeagent.shared.schemas import ApprovalRecord, RunEvent, TaskCreate, TaskRecord
 from safeagent.shared.task_lifecycle import is_valid_task_status_transition
 from safeagent.shared.time import utc_now_iso
@@ -90,7 +91,13 @@ class TaskStore:
     def create_task(self, task: TaskCreate) -> TaskRecord:
         if not task.content.strip():
             raise ValidationError("server.db", "Task content cannot be empty")
-        record = TaskRecord.create(task)
+        redacted_task = TaskCreate(
+            content=str(redact_payload(task.content)),
+            device_id=task.device_id,
+            requested_profile=task.requested_profile,
+            remote_permission=task.remote_permission,
+        )
+        record = TaskRecord.create(redacted_task)
         with self._connection() as conn:
             conn.execute(
                 """
@@ -160,7 +167,7 @@ class TaskStore:
             )
 
     def append_event(self, event: RunEvent) -> None:
-        payload = event.to_dict()
+        payload = redact_payload(event.to_dict())
         with self._connection() as conn:
             conn.execute(
                 "insert into events(event_id, task_id, run_id, payload_json, created_at) values (?, ?, ?, ?, ?)",
@@ -174,7 +181,7 @@ class TaskStore:
             )
 
     def record_approval(self, approval: ApprovalRecord) -> None:
-        payload = approval.to_dict()
+        payload = redact_payload(approval.to_dict())
         with self._connection() as conn:
             conn.execute(
                 "insert into approvals(approval_id, task_id, run_id, payload_json, created_at) values (?, ?, ?, ?, ?)",
@@ -219,6 +226,7 @@ class TaskStore:
 
     def heartbeat(self, device_id: str, payload: dict[str, Any]) -> None:
         now = utc_now_iso()
+        redacted_payload = redact_payload(payload)
         with self._connection() as conn:
             conn.execute(
                 """
@@ -228,7 +236,7 @@ class TaskStore:
                     payload_json = excluded.payload_json,
                     updated_at = excluded.updated_at
                 """,
-                (device_id, json.dumps(payload, ensure_ascii=False, sort_keys=True), now),
+                (device_id, json.dumps(redacted_payload, ensure_ascii=False, sort_keys=True), now),
             )
 
     def get_run(self, run_id: str) -> dict[str, Any]:
