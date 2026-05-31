@@ -74,6 +74,20 @@ ERROR_CATALOG: dict[str, ErrorCodeSpec] = {
         description="Input, configuration, graph, or state validation failed.",
         operator_hint="Read details.module and details fields; fix the invalid input before retrying.",
     ),
+    "worker.task_failed": ErrorCodeSpec(
+        code="worker.task_failed",
+        owner="local_worker.worker",
+        retriable=False,
+        description="One task failed inside the local worker task-isolation boundary.",
+        operator_hint="Inspect the local worker audit log for the failed task; do not stop processing unrelated tasks.",
+    ),
+    "worker.report_failed": ErrorCodeSpec(
+        code="worker.report_failed",
+        owner="local_worker.worker",
+        retriable=True,
+        description="The worker caught a task failure but failed to report that failure to the control plane.",
+        operator_hint="Check control-plane reachability and auth; the local audit log remains authoritative.",
+    ),
 }
 
 

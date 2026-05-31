@@ -148,3 +148,37 @@ result: 114 passed, 1 warning
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; error_catalog passed; graph_runtime resolved_runtime=langgraph; stdlib_tests passed=114 failed=0
 ```
+
+## Worker Task Isolation
+
+```text
+1. Initialized the workspace as a git repository and committed the SafeAgent baseline.
+2. Added .gitattributes to keep tracked text files LF-stable.
+3. Ignored generated *.egg-info package metadata.
+4. LocalWorker.run_once now isolates each pending task.
+5. A task failure writes task_failed to the local audit log.
+6. A task failure tries to post a run_failed event and update that task to failed.
+7. Failure reporting is best effort and cannot block later tasks in the same poll batch.
+8. Added worker.task_failed and worker.report_failed to the registered error catalog.
+9. Added tests/test_worker.py.
+10. Updated troubleshooting guidance for task_failed and task_failure_report_failed.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_worker.py -q
+result: 2 passed
+
+.\.venv\Scripts\python.exe .\scripts\check_error_catalog.py
+result: OK error catalog; registered_codes=9
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 116 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py --quick
+result: OK doctor checks; error_catalog registered_codes=9; graph_runtime resolved_runtime=langgraph
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=116 failed=0
+```

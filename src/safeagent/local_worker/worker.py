@@ -9,8 +9,11 @@ from safeagent.local_worker.providers import build_provider_registry
 from safeagent.local_worker.registry import load_default_registries
 from safeagent.local_worker.settings import WorkerSettings
 from safeagent.shared.audit_log import JsonlAuditLog
-from safeagent.shared.errors import SafeAgentError
+from safeagent.shared.enums import EventType, RiskLevel, Severity, TaskStatus
+from safeagent.shared.errors import ErrorEnvelope, SafeAgentError
+from safeagent.shared.ids import new_id
 from safeagent.shared.redaction import redact_payload
+from safeagent.shared.schemas import RunEvent
 from safeagent.shared.time import utc_now_iso
 
 
@@ -49,7 +52,7 @@ class LocalWorker:
     async def run_once(self) -> int:
         tasks = await self.client.fetch_pending(self.settings.device_id)
         for task in tasks:
-            await self._handle_task(task)
+            await self._handle_task_safely(task)
         return len(tasks)
 
     async def run_forever(self) -> None:
@@ -67,6 +70,27 @@ class LocalWorker:
             except SafeAgentError as exc:
                 self.audit.write({"timestamp": utc_now_iso(), "error": exc.envelope.to_dict()})
             await asyncio.sleep(self.settings.poll_interval_seconds)
+
+    async def _handle_task_safely(self, task: dict[str, object]) -> None:
+        try:
+            await self._handle_task(task)
+        except SafeAgentError as exc:
+            await self._record_task_failure(task, exc.envelope)
+        except Exception as exc:  # pragma: no cover - defensive boundary for plugin/provider surprises
+            await self._record_task_failure(
+                task,
+                ErrorEnvelope(
+                    code="worker.task_failed",
+                    module="local_worker.worker",
+                    message="Task failed inside local worker isolation boundary",
+                    severity=Severity.ERROR,
+                    retriable=False,
+                    details={
+                        "exception_type": type(exc).__name__,
+                        "exception_message": str(exc),
+                    },
+                ),
+            )
 
     async def _handle_task(self, task: dict[str, object]) -> None:
         approval = await self.client.fetch_latest_approval(str(task["task_id"]))
@@ -87,6 +111,82 @@ class LocalWorker:
             self.audit.write(event.to_dict())
             await self.client.post_event(event)
         await self.client.update_status(str(task["task_id"]), result.status)
+
+    async def _record_task_failure(self, task: dict[str, object], error: ErrorEnvelope) -> None:
+        task_id = _task_id(task)
+        run_id = new_id("run")
+        error_payload = redact_payload(error.to_dict())
+        self.audit.write(
+            {
+                "timestamp": utc_now_iso(),
+                "module": "local_worker",
+                "event": "task_failed",
+                "task_id": task_id,
+                "run_id": run_id,
+                "task": redact_payload(task),
+                "error": error_payload,
+            }
+        )
+        if task_id == "unknown":
+            return
+
+        failure_event = RunEvent(
+            task_id=task_id,
+            run_id=run_id,
+            agent="local_worker",
+            event_type=EventType.RUN_FAILED,
+            summary="Task failed inside local worker isolation boundary",
+            risk_level=RiskLevel.LOW,
+            details={"error": error_payload},
+        )
+        self.audit.write(failure_event.to_dict())
+        await self._best_effort_report_failure(task_id, failure_event)
+
+    async def _best_effort_report_failure(self, task_id: str, event: RunEvent) -> None:
+        try:
+            await self.client.post_event(event)
+        except SafeAgentError as exc:
+            self._audit_reporting_failure("post_event", task_id, exc.envelope)
+        except Exception as exc:  # pragma: no cover - defensive network boundary
+            self._audit_reporting_failure("post_event", task_id, _unexpected_reporting_error(exc))
+
+        try:
+            await self.client.update_status(task_id, TaskStatus.FAILED)
+        except SafeAgentError as exc:
+            self._audit_reporting_failure("update_status", task_id, exc.envelope)
+        except Exception as exc:  # pragma: no cover - defensive network boundary
+            self._audit_reporting_failure("update_status", task_id, _unexpected_reporting_error(exc))
+
+    def _audit_reporting_failure(self, operation: str, task_id: str, error: ErrorEnvelope) -> None:
+        self.audit.write(
+            {
+                "timestamp": utc_now_iso(),
+                "module": "local_worker",
+                "event": "task_failure_report_failed",
+                "operation": operation,
+                "task_id": task_id,
+                "error": redact_payload(error.to_dict()),
+            }
+        )
+
+
+def _task_id(task: dict[str, object]) -> str:
+    value = task.get("task_id")
+    return str(value) if value else "unknown"
+
+
+def _unexpected_reporting_error(exc: Exception) -> ErrorEnvelope:
+    return ErrorEnvelope(
+        code="worker.report_failed",
+        module="local_worker.worker",
+        message="Failed to report isolated task failure",
+        severity=Severity.ERROR,
+        retriable=True,
+        details={
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc),
+        },
+    )
 
 
 async def async_main() -> None:

@@ -661,6 +661,50 @@ local_worker 不能依赖 server。
 3. 如果 local_worker 需要和 server 通信，通过 client/API schema，不直接 import server.db 或 server.app。
 4. 如果 server 需要展示 worker 结果，只读取已上传的 RunEvent/details，不调用 worker 模块。
 5. 修复后运行 python .\scripts\check_module_boundaries.py。
+
+## 单个远程任务失败，但 Worker 继续处理后续任务
+
+这是预期的隔离行为。
+
+本地 Worker 每次 polling 可能拿到多个 pending task。任何单个 task 在 approval
+读取、LangGraph 编排、模型路由、策略检查、事件上报或状态更新阶段失败时，都不应让
+同一批次的其他 task 被跳过。
+
+排查步骤：
+
+```powershell
+Get-Content E:\agents\logs\worker.jsonl -Tail 80
+```
+
+重点看这些字段：
+
+```text
+event = task_failed
+error.code = validation.failed / upstream.transient / worker.task_failed / worker.report_failed
+error.module = 出错模块
+task_id = 失败任务
+run_id = 本地为失败边界生成的 run
+```
+
+如果看到：
+
+```text
+event = task_failure_report_failed
+operation = post_event 或 update_status
+```
+
+说明本地已经捕获了任务失败，但向云端回传失败事件或失败状态时也遇到了网络/API
+问题。此时不要重启整批任务，更不要绕过本地 policy；先检查控制台服务、token、网络
+和 `/api/tasks/{task_id}/events` / `/api/tasks/{task_id}/status` 是否可用。
+
+预期结果：
+
+```text
+1. 失败任务会尽量回传 run_failed 事件。
+2. 失败任务会尽量更新为 failed。
+3. 如果回传失败，本地日志仍保留 task_failed 和 task_failure_report_failed。
+4. 同一轮 polling 中的后续任务继续处理。
+```
 6. 再运行 python .\scripts\doctor.py --quick。
 ```
 

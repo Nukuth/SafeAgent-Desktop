@@ -27,6 +27,8 @@ policy.denied
 provider.not_configured
 upstream.transient
 validation.failed
+worker.report_failed
+worker.task_failed
 ```
 
 ## Rules
@@ -38,6 +40,7 @@ validation.failed
 4. Provider/API key values must never appear in details.
 5. Transient errors should set retriable=true only when an automatic retry is safe.
 6. Policy and approval failures are not retriable by blind retry.
+7. Worker task isolation failures must not stop unrelated tasks in the same poll batch.
 ```
 
 ## Adding A New Error
