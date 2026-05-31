@@ -119,6 +119,12 @@ def test_task_store_redacts_cloud_persisted_payloads(tmp_path):
         )
     )
     store.heartbeat("pc-1", {"token": secret, "status": "online"})
+    latest_heartbeat = store.latest_heartbeat("pc-1")
+    assert latest_heartbeat is not None
+    assert latest_heartbeat["token"] == "[REDACTED]"
+    assert latest_heartbeat["status"] == "online"
+    assert latest_heartbeat["updated_at"]
+    assert store.latest_heartbeat("missing") is None
 
     conn = sqlite3.connect(db_path)
     try:

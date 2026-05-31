@@ -107,6 +107,26 @@ def test_remote_and_worker_tokens_are_separate_api_boundaries(tmp_path):
         assert latest_approval.status_code == 200
         assert latest_approval.json()["approval"] is None
 
+        heartbeat_response = client.post(
+            f"/api/tasks/{task_id}/heartbeat",
+            headers=worker_headers(),
+            json={
+                "device_id": "pc-1",
+                "phase": "poll_completed",
+                "status": "online",
+                "token": "sk-abcdefghijklmnopqrstuvwxyz",
+            },
+        )
+        assert heartbeat_response.status_code == 200
+        assert_auth_failed(client.post(f"/api/tasks/{task_id}/heartbeat", headers=remote_headers(), json={}))
+        heartbeat_view = client.get("/api/devices/pc-1/heartbeat", headers=remote_headers())
+        assert heartbeat_view.status_code == 200
+        heartbeat = heartbeat_view.json()["heartbeat"]
+        assert heartbeat["phase"] == "poll_completed"
+        assert heartbeat["token"] == "[REDACTED]"
+        assert heartbeat["updated_at"]
+        assert_auth_failed(client.get("/api/devices/pc-1/heartbeat", headers=worker_headers()))
+
         assert_auth_failed(
             client.post(f"/api/tasks/{task_id}/status", headers=remote_headers(), json={"status": "completed"})
         )

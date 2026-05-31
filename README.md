@@ -97,3 +97,4 @@ python -m safeagent.local_worker.worker
 - Full logs stay local under `E:\agents\logs`; cloud events are redacted summaries.
 - The server store redacts task content, event payloads, approvals, and heartbeats before SQLite persistence.
 - Remote UI routes use `SAFEAGENT_SERVER_TOKEN`; worker-only routes use `SAFEAGENT_WORKER_TOKEN`.
+- The worker reports best-effort heartbeats; the remote UI can read the latest heartbeat without holding the worker token.

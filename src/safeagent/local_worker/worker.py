@@ -50,9 +50,11 @@ class LocalWorker:
         )
 
     async def run_once(self) -> int:
+        await self._post_worker_heartbeat("poll_started")
         tasks = await self.client.fetch_pending(self.settings.device_id)
         for task in tasks:
             await self._handle_task_safely(task)
+        await self._post_worker_heartbeat("poll_completed", task_count=len(tasks))
         return len(tasks)
 
     async def run_forever(self) -> None:
@@ -111,6 +113,39 @@ class LocalWorker:
             self.audit.write(event.to_dict())
             await self.client.post_event(event)
         await self.client.update_status(str(task["task_id"]), result.status)
+
+    async def _post_worker_heartbeat(self, phase: str, task_count: int | None = None) -> None:
+        payload: dict[str, object] = {
+            "device_id": self.settings.device_id,
+            "phase": phase,
+            "status": "online",
+            "timestamp": utc_now_iso(),
+            "poll_interval_seconds": self.settings.poll_interval_seconds,
+        }
+        if task_count is not None:
+            payload["task_count"] = task_count
+        try:
+            await self.client.heartbeat("worker", payload)
+        except SafeAgentError as exc:
+            self.audit.write(
+                {
+                    "timestamp": utc_now_iso(),
+                    "module": "local_worker",
+                    "event": "heartbeat_failed",
+                    "phase": phase,
+                    "error": redact_payload(exc.envelope.to_dict()),
+                }
+            )
+        except Exception as exc:  # pragma: no cover - defensive network boundary
+            self.audit.write(
+                {
+                    "timestamp": utc_now_iso(),
+                    "module": "local_worker",
+                    "event": "heartbeat_failed",
+                    "phase": phase,
+                    "error": redact_payload(_unexpected_reporting_error(exc).to_dict()),
+                }
+            )
 
     async def _record_task_failure(self, task: dict[str, object], error: ErrorEnvelope) -> None:
         task_id = _task_id(task)

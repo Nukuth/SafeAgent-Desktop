@@ -295,3 +295,31 @@ result: 124 passed, 2 warnings
 .\.venv\Scripts\python.exe .\scripts\doctor.py
 result: OK doctor checks; stdlib_tests passed=124 failed=0
 ```
+
+## Worker Heartbeat Visibility
+
+```text
+1. Added TaskStore.latest_heartbeat(device_id).
+2. Added remote-readable GET /api/devices/{device_id}/heartbeat.
+3. Worker heartbeat writes still require SAFEAGENT_WORKER_TOKEN.
+4. Remote heartbeat reads use SAFEAGENT_SERVER_TOKEN.
+5. LocalWorker.run_once now posts best-effort poll_started and poll_completed heartbeats.
+6. Heartbeat failures write heartbeat_failed locally and do not block polling or task handling.
+7. Heartbeat payloads are redacted at the cloud store boundary.
+```
+
+Verification:
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\test_worker.py tests\test_server_store.py tests\test_server_app.py -q
+result: 11 passed, 1 warning
+
+.\.venv\Scripts\python.exe .\scripts\run_stdlib_tests.py
+result: passed=125 failed=0
+
+.\.venv\Scripts\python.exe -m pytest -q
+result: 125 passed, 2 warnings
+
+.\.venv\Scripts\python.exe .\scripts\doctor.py
+result: OK doctor checks; stdlib_tests passed=125 failed=0
+```

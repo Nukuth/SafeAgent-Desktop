@@ -115,6 +115,10 @@ def create_app():  # type: ignore[no-untyped-def]
         store.heartbeat(device_id, redact_payload({"task_id": task_id, **body}))
         return {"status": "ok"}
 
+    @app.get("/api/devices/{device_id}/heartbeat", dependencies=[Depends(require_auth)])
+    def latest_heartbeat(device_id: str) -> dict[str, Any]:
+        return {"heartbeat": store.latest_heartbeat(device_id)}
+
     @app.post("/api/tasks/{task_id}/events", dependencies=[Depends(require_worker_auth)])
     def append_event(task_id: str, body: EventBody) -> dict[str, Any]:
         try:

@@ -818,3 +818,25 @@ $env:SAFEAGENT_LOCAL_QWEN_API_KEY="local-no-key"
 6. 并发先设 1。
 7. 小模型只作为排障 fallback，不作为主路线。
 ```
+## 查看 Worker 心跳
+
+本地 worker 每次 polling 前后都会尽力上报 heartbeat。远程 UI 使用
+`SAFEAGENT_SERVER_TOKEN` 读取，不需要持有 worker token：
+
+```powershell
+$headers = @{ Authorization = "Bearer change-me" }
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/devices/local-pc-1/heartbeat" -Headers $headers
+```
+
+返回中重点看：
+
+```text
+heartbeat.device_id
+heartbeat.phase
+heartbeat.status
+heartbeat.task_count
+heartbeat.updated_at
+```
+
+如果 `heartbeat = null`，表示该 `device_id` 还没有成功上报过心跳。先检查
+`SAFEAGENT_DEVICE_ID`、`SAFEAGENT_WORKER_TOKEN` 和 worker 是否正在运行。

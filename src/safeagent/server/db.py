@@ -239,6 +239,19 @@ class TaskStore:
                 (device_id, json.dumps(redacted_payload, ensure_ascii=False, sort_keys=True), now),
             )
 
+    def latest_heartbeat(self, device_id: str) -> dict[str, Any] | None:
+        with self._connection() as conn:
+            row = conn.execute(
+                "select payload_json, updated_at from heartbeats where device_id = ?",
+                (device_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row["payload_json"])
+        if isinstance(payload, dict):
+            return {**payload, "updated_at": row["updated_at"]}
+        return {"payload": payload, "updated_at": row["updated_at"]}
+
     def get_run(self, run_id: str) -> dict[str, Any]:
         with self._connection() as conn:
             events = conn.execute(
