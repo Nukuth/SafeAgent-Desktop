@@ -4,7 +4,7 @@
 
 本地 Qwen 只作为应急对话和低风险推理模型使用。目标路线改为直接部署 35B/32B 级模型，但用低内存参数运行。
 
-低内存 35B 路线是：
+低内存 35B/32B 路线是：
 
 ```text
 1. 直接选择 35B/32B 级 GGUF 模型。
@@ -12,7 +12,9 @@
 3. 优先使用 llama.cpp / llama-server。
 4. 上下文先设小，例如 4096 或 8192。
 5. 只监听 127.0.0.1，不暴露到局域网或公网。
-6. 小模型只作为排障 fallback，不作为主路线。
+6. 不使用 4B 作为本项目本地路线。
+7. 不把 qwen3.5:27b 当作 35B/32B 替代。
+8. 未经用户明确批准，不下载 20GB+ 模型文件。
 ```
 
 适合：
@@ -56,11 +58,11 @@ POST http://127.0.0.1:8000/v1/chat/completions
 
 如果你的本地服务端口、路径或模型名不同，修改 `configs/models.json` 里的 `local_qwen`，不要把真实密钥写进配置。
 
-## 低内存 35B 部署建议
+## 低内存 35B/32B 部署建议
 
 ### 推荐起步方案
 
-如果你确定直接上 35B，建议优先选 GGUF 4-bit 量化。严格说，常见官方编码模型是 Qwen2.5-Coder-32B-Instruct-GGUF，属于 32B 级；如果你手头是 Qwen 35B / 35B-A3B GGUF，也按同样方式接入。
+如果你确定直接上 35B/32B 级，建议优先选 GGUF 4-bit 量化。严格说，常见官方编码模型是 Qwen2.5-Coder-32B-Instruct-GGUF，属于 32B 级；如果你手头是 Qwen 35B / 35B-A3B GGUF，也按同样方式接入。
 
 ```text
 首选量化：Q4_K_M
@@ -79,15 +81,20 @@ POST http://127.0.0.1:8000/v1/chat/completions
 4. 当前 SafeAgent 只需要本地模型做应急解释和低风险摘要，不需要它承担高风险审查。
 ```
 
-小模型 fallback 只用于排障：
+本项目本地 Qwen 路线的硬约束：
 
 ```text
-1. 如果 35B 无法加载，先用 7B/8B 验证 server 和 API 路径。
-2. 验证通过后再换回 35B/32B 模型文件。
-3. 不把小模型作为最终目标。
+1. local_qwen 必须配置为 35B/32B 级 Qwen 模型。
+2. 4B 不允许作为本项目本地路线。
+3. qwen3.5:27b 不允许当作 35B/32B 替代。
+4. 如果需要下载 20GB+ GGUF 文件，必须先取得用户明确批准。
 ```
 
 ### llama.cpp / llama-server 方向
+
+当前建议后端是 llama.cpp 的 `llama-server`。Windows 上优先使用同一 release 里匹配 CUDA 13.x 的构建，因为本机 `nvidia-smi` 已显示 Driver 581.42 / CUDA 13.0。只有 CUDA 13.x 构建无法运行或缺失时，再提出同 release 的 CUDA 12.4 构建作为回退。
+
+不要在未获批准时执行大模型下载。可以先完成二进制和路径检查；需要下载模型文件时，把待下载文件名、大小、来源和目标路径列出来让用户确认。
 
 推荐把本地模型服务暴露成：
 
@@ -100,7 +107,7 @@ http://127.0.0.1:8000/v1
 如果使用 llama.cpp 的 `llama-server`，本地文件方式：
 
 ```powershell
-llama-server -m E:\agents\models\qwen-35b-local-q4.gguf --host 127.0.0.1 --port 8000 -c 4096 -np 1
+.\llama-server.exe -m E:\agents\models\qwen-35b-local-q4.gguf --host 127.0.0.1 --port 8000 -c 4096 -np 1
 ```
 
 说明：
@@ -113,10 +120,10 @@ llama-server -m E:\agents\models\qwen-35b-local-q4.gguf --host 127.0.0.1 --port 
 -np 1：单并发，降低峰值内存。
 ```
 
-如果使用 Hugging Face 远程模型标识，并且本机 llama.cpp 支持 `-hf`：
+如果使用 Hugging Face 远程模型标识，并且本机 llama.cpp 支持 `-hf`，下面命令会触发模型下载；只有在用户明确批准下载 20GB+ 模型文件后才能执行：
 
 ```powershell
-llama-server -hf Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q4_K_M --host 127.0.0.1 --port 8000 -c 4096 -np 1
+.\llama-server.exe -hf Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q4_K_M --host 127.0.0.1 --port 8000 -c 4096 -np 1
 ```
 
 模型文件建议放在：
