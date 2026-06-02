@@ -140,3 +140,30 @@ def test_provider_errors_are_redacted_and_do_not_fail_graph():
     serialized = str(result.to_dict())
     assert "sk-abcdefghijklmnopqrstuvwxyz" not in serialized
     assert "[REDACTED]" in serialized
+
+
+def test_codex_reviewer_creates_manual_review_package_when_provider_missing(tmp_path):
+    agents, profiles = load_default_registries(Path("configs"))
+    graph = GraphPlanCompiler(agents).compile(profiles.get("code_change"))
+    result = GraphRunner(build_default_handlers(ProviderRegistry(), reviews_dir=tmp_path / "reviews")).run(
+        graph,
+        GraphState(
+            task_id="task_1",
+            run_id="run_1",
+            payload={
+                "content": "change code and run risky command",
+                "profile": "code_change",
+                "model_route": {"primary_model": "deepseek", "review_model": "codex"},
+                "policy": {"risk_level": "high", "allowed": False},
+            },
+        ),
+    )
+
+    outputs = {item.node_id: item.output for item in result.node_results}
+    bridge = outputs["codex_reviewer"]["manual_review_bridge"]
+
+    assert bridge["status"] == "manual_review_required"
+    assert Path(bridge["markdown_path"]).exists()
+    assert Path(bridge["json_path"]).exists()
+    assert outputs["codex_reviewer"]["review_status"] == "manual_review_required"
+    assert "review_passed" not in str(outputs["codex_reviewer"])

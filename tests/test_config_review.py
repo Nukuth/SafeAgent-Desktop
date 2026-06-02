@@ -11,7 +11,7 @@ def test_current_config_permission_review_has_no_blocking_findings():
     codes = {finding.code for finding in report.findings}
     assert "agent.executor_boundary" in codes
     assert "profile.remote_executor" in codes
-    assert "model.codex_disabled" in codes
+    assert "model.codex_disabled" not in codes
     assert len(report.config_hash) == 64
 
 

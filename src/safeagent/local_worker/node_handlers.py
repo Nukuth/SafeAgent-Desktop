@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
+from safeagent.local_worker.codex_review_bridge import create_codex_review_package
 from safeagent.local_worker.graph_plan import GraphNode
 from safeagent.local_worker.graph_runner import GraphState, NodeHandler
 from safeagent.local_worker.providers import ModelRequest, ModelResponse, ProviderRegistry
@@ -139,11 +141,33 @@ def search_agent_handler(node: GraphNode, state: GraphState, invoker: ModelInvok
     }
 
 
-def reviewer_handler(node: GraphNode, state: GraphState, invoker: ModelInvoker | None = None) -> dict[str, object]:
+def reviewer_handler(
+    node: GraphNode,
+    state: GraphState,
+    invoker: ModelInvoker | None = None,
+    reviews_dir: Path | None = None,
+) -> dict[str, object]:
+    model_result = _maybe_invoke_model(node, state, invoker, "review")
+    if node.node_id == "codex_reviewer" and model_result.get("model_status") == "unavailable":
+        prompt = _prompt_for_node(node, state, "review")
+        bridge = create_codex_review_package(
+            reviews_dir=reviews_dir or Path(r"E:\agents\reviews"),
+            task_id=state.task_id,
+            run_id=state.run_id,
+            node_id=node.node_id,
+            prompt=prompt,
+            model_error=model_result.get("error") if isinstance(model_result.get("error"), dict) else None,
+        )
+        return {
+            "review_status": "manual_review_required",
+            "note": "codex reviewer API unavailable; manual Codex review package created",
+            "model": model_result,
+            "manual_review_bridge": bridge,
+        }
     return {
         "review_status": "placeholder",
         "note": f"{node.node_id} records review boundary only",
-        "model": _maybe_invoke_model(node, state, invoker, "review"),
+        "model": model_result,
     }
 
 
@@ -169,24 +193,29 @@ def summarizer_handler(node: GraphNode, state: GraphState, invoker: ModelInvoker
     }
 
 
-def _bind(handler, invoker: ModelInvoker | None) -> NodeHandler:
+def _bind(handler, invoker: ModelInvoker | None, reviews_dir: Path | None = None) -> NodeHandler:
     def bound(node: GraphNode, state: GraphState) -> dict[str, object]:
+        if handler is reviewer_handler:
+            return handler(node, state, invoker, reviews_dir)
         return handler(node, state, invoker)
 
     return bound
 
 
-def build_default_handlers(provider_registry: ProviderRegistry | None = None) -> dict[str, NodeHandler]:
+def build_default_handlers(
+    provider_registry: ProviderRegistry | None = None,
+    reviews_dir: Path | None = None,
+) -> dict[str, NodeHandler]:
     invoker = ProviderModelInvoker(provider_registry) if provider_registry else None
     return {
         "planner": _bind(planner_handler, invoker),
         "shell_agent": _bind(shell_agent_handler, invoker),
         "file_agent": _bind(file_agent_handler, invoker),
         "code_agent": _bind(code_agent_handler, invoker),
-        "test_agent": _bind(reviewer_handler, invoker),
+        "test_agent": _bind(reviewer_handler, invoker, reviews_dir),
         "search_agent": _bind(search_agent_handler, invoker),
-        "rule_reviewer": _bind(reviewer_handler, invoker),
-        "codex_reviewer": _bind(reviewer_handler, invoker),
+        "rule_reviewer": _bind(reviewer_handler, invoker, reviews_dir),
+        "codex_reviewer": _bind(reviewer_handler, invoker, reviews_dir),
         "human_approval": human_approval_handler,
         "executor": executor_handler,
         "summarizer": _bind(summarizer_handler, invoker),
