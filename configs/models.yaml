@@ -18,11 +18,11 @@ providers:
     timeout_seconds: "60"
     system_prompt: You are a planning and coding assistant. Produce cautious, auditable outputs.
   codex:
-    type: openai_compatible
-    enabled: false
-    base_url: ""
-    model: codex
+    type: openai_responses
+    enabled: true
+    base_url: https://api.openai.com/v1
+    model: gpt-5.5
     api_key_env: SAFEAGENT_CODEX_API_KEY
     default_api_key: ""
     timeout_seconds: "60"
-    system_prompt: You are a critical reviewer. Identify risks and safer alternatives. Do not execute actions.
+    system_prompt: You are a critical code and command reviewer for SafeAgent. Identify risks, safer alternatives, backup needs, and whether local human confirmation is required. Do not execute actions.

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from safeagent.shared.env_file import build_effective_env
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,9 +14,10 @@ class ServerSettings:
 
     @classmethod
     def from_env(cls) -> "ServerSettings":
-        token = os.environ.get("SAFEAGENT_SERVER_TOKEN", "")
+        env = build_effective_env()
+        token = env.get("SAFEAGENT_SERVER_TOKEN", "")
         return cls(
             token=token,
-            worker_token=os.environ.get("SAFEAGENT_WORKER_TOKEN", token),
-            db_path=Path(os.environ.get("SAFEAGENT_DB_PATH", r"E:\agents\state\server.sqlite3")),
+            worker_token=env.get("SAFEAGENT_WORKER_TOKEN", token),
+            db_path=Path(env.get("SAFEAGENT_DB_PATH", r"E:\agents\state\server.sqlite3")),
         )
