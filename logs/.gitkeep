@@ -1,0 +1,5 @@
+# SafeAgent local logs directory
+
+Runtime logs such as `worker.jsonl` are written here by the local Worker and
+remain ignored by git. This placeholder keeps `E:\agents\logs` visible before
+the first Worker run.

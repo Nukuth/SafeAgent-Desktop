@@ -1,11 +1,17 @@
 .venv/
 .runtime/
+.pytest_cache/
 .env.local
 .env.local.*
 downloads/
 logs/
+!logs/
+logs/*
+!logs/.gitkeep
 state/
+reviews/
 models/
+tools/
 __pycache__/
 *.py[cod]
 *.sqlite3
