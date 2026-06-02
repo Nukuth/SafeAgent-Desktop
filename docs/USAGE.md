@@ -932,12 +932,14 @@ $env:SAFEAGENT_LOCAL_QWEN_API_KEY="local-no-key"
 
 ```text
 1. 模型文件放到 E:\agents\models。
-2. 用 llama.cpp / llama-server / LM Studio / Ollama 暴露 OpenAI-compatible API。
+2. 优先用 latest llama.cpp / llama-server 暴露 OpenAI-compatible API。
 3. API base URL 保持 http://127.0.0.1:8000/v1。
 4. 量化优先 Q4_K_M；内存不足时退到 Q3_K_M 或 Q2_K。
 5. 上下文先设 4096，稳定后再提高。
 6. 并发先设 1。
-7. 小模型只作为排障 fallback，不作为主路线。
+7. Windows 优先选同一 release 的 CUDA 13.x 构建；失败再考虑同 release CUDA 12.4 回退。
+8. 不使用 4B，不把 qwen3.5:27b 当作 35B/32B 替代。
+9. 未经用户明确批准，不下载 20GB+ 模型文件。
 ```
 ## 查看 Worker 心跳
 

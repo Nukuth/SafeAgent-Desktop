@@ -1,4 +1,102 @@
 # SafeAgent Workspace 构建日志
+## 2026-06-01 控制台中文化、多模型展示与错误提示修复
+
+本轮目标：
+
+```text
+1. 解决控制台误操作时直接暴露 API validation 报错的问题。
+2. 改善首页过于简陋的问题，让打开方式、Worker 启动和 Token 使用更清楚。
+3. 将权限模式展示为中文。
+4. 在首页体现 DeepSeek / Codex / 本地 Qwen 35B 的多模型分工。
+```
+
+根因判断：
+
+```text
+1. 原页面把 submit_task / approval_only / view_only 直接暴露给用户，含义不直观。
+2. 用户在只读或只审批模式下点击“提交任务”时，会把无效 remote_permission 发到 POST /api/tasks，导致 API 返回 validation.failed。
+3. 首页只列接口和少量提示，不能说明控制台服务、Worker、本地日志、多模型之间的关系。
+```
+
+代码调整：
+
+```text
+1. src/safeagent/server/app.py 新增中文优先的 improved control console。
+2. 首页增加三步打开指引：启动控制台服务、启动本地 Worker、打开页面并填 Token。
+3. 权限模式改为中文展示：
+   - 提交任务（可创建和审批）
+   - 只审批（不能创建任务）
+   - 只读查看（不能提交或审批）
+4. 提交任务前在浏览器端检查权限模式；非 submit_task 时直接给中文提示，不再撞 API。
+5. 增加 formatError()，把 auth.failed / validation.failed 转成更可读的中文提示。
+6. 首页增加“多模型协作路线”：DeepSeek 主模型、Codex 高风险审查、本地 Qwen 35B 应急模型。
+7. 保留过程日志、Task ID、Run ID、Agent 事件链查看能力。
+```
+
+安全边界：
+
+```text
+1. 浏览器只填写 SAFEAGENT_SERVER_TOKEN，不填写模型 API Key。
+2. DeepSeek / Codex / Qwen 仍只负责生成或审查，不获得执行权。
+3. 高风险执行仍由本地 Worker、Risk Router 和人工确认控制。
+4. 云端/页面只展示脱敏摘要，完整日志仍在 E:\agents\logs。
+```
+
+验证：
+
+```text
+1. pytest tests/test_server_app.py::test_control_console_html_exposes_remote_workflow_and_model_setup -q
+   1 passed, 1 warning
+```
+## 2026-06-01 控制台过程日志入口
+
+本轮目标：
+
+```text
+1. 让用户知道怎么打开当前控制台。
+2. 在控制台直接查看任务过程、Run 过程和 Agent 事件链。
+3. 明确云端/控制台只展示脱敏摘要，完整日志继续留在 E:\agents\logs。
+4. 清理旧首页乱码实现，避免交付不可读 UI。
+```
+
+代码调整：
+
+```text
+1. src/safeagent/server/app.py 重写控制台首页文案和交互。
+2. 首页新增“启动控制台”说明：
+   cd E:\agents
+   .\scripts\start_control_console.cmd
+   http://127.0.0.1:8080
+3. 首页新增“过程日志”区域。
+4. 过程日志支持查看：
+   GET /api/tasks/{task_id}
+   GET /api/runs/{run_id}
+5. JS 使用 textContent 渲染事件摘要，避免把后端返回内容当 HTML 注入。
+6. 提交任务后自动填入 Task ID；查看任务过程后自动填入 Run ID。
+7. 删除旧的乱码 legacy 控制台 HTML 块。
+```
+
+安全边界：
+
+```text
+1. 页面只使用 SAFEAGENT_SERVER_TOKEN 调用远程只读或提交接口。
+2. worker-only 接口仍不能被远程 token 调用。
+3. 控制台显示的是脱敏事件摘要，不显示 API Key 或完整敏感文件内容。
+4. 高风险任务仍需要本地风险路由和人工确认。
+```
+
+验证：
+
+```text
+1. pytest tests/test_server_app.py::test_control_console_html_exposes_remote_workflow_and_model_setup -q
+   1 passed, 1 warning
+2. scripts/run_stdlib_tests.py
+   passed=159 failed=0
+3. scripts/doctor.py
+   OK doctor checks
+4. 临时 UI smoke
+   status=200, has_process_logs=True, has_agent_chain=True, has_open_steps=True
+```
 
 ## 2026-05-29
 
@@ -14,6 +112,58 @@
 审计日志
 策略引擎
 清晰报错机制
+```
+
+## 2026-06-01 DeepSeek / Codex 接入与控制台调试
+
+目标：
+```text
+1. DeepSeek 继续使用 OpenAI-compatible /chat/completions 接入。
+2. Codex 审查 provider 改为 OpenAI Responses API 接入，默认模型 gpt-5.5。
+3. 首页提供最小远程控制台，能提交任务、刷新任务和查看设备心跳。
+4. 明确区分“代码路径已接入”和“本机真实 API key 已配置并连通”。
+```
+
+代码调整：
+```text
+1. configs/models.json 与 configs/models.yaml 同步启用 codex。
+2. codex provider type 改为 openai_responses。
+3. 新增 OpenAIResponsesProvider，POST 到 /responses。
+4. DeepSeek 保持 OpenAICompatibleProvider，POST 到 /chat/completions。
+5. 新增 scripts/probe_model_providers.py，用于真实连通测试。
+6. FastAPI 根路径 / 新增 SafeAgent Control Console HTML 页面。
+```
+
+配置要求：
+```text
+DeepSeek:
+SAFEAGENT_DEEPSEEK_API_KEY=...
+
+Codex / GPT-5.5:
+SAFEAGENT_CODEX_API_KEY=...
+```
+
+验证命令：
+```powershell
+cd E:\agents
+.\.venv\Scripts\python.exe .\scripts\check_model_config.py
+.\.venv\Scripts\python.exe .\scripts\probe_model_providers.py deepseek
+.\.venv\Scripts\python.exe .\scripts\probe_model_providers.py codex
+```
+
+报错应对：
+```text
+SKIP deepseek ... missing SAFEAGENT_DEEPSEEK_API_KEY：
+  说明 DeepSeek 代码接入存在，但本机没有配置真实 key。
+
+SKIP codex ... missing SAFEAGENT_CODEX_API_KEY：
+  说明 Codex / GPT-5.5 Responses API 路径存在，但本机没有配置真实 key。
+
+provider HTTP error 401 / 403：
+  key 错误、权限不足、账号无模型权限，重新检查本地 .env.local。
+
+upstream.transient / endpoint unreachable：
+  网络不可达、DNS/代理问题、服务端超时。先不要改安全策略。
 ```
 
 ### 已完成步骤
@@ -1168,4 +1318,50 @@ P6 Knowledge base, memory, and long-term extensions
 2. PolicyEngine 仍是风险判断核心。
 3. Executor 仍是唯一执行边界。
 4. approval / plan_hash / audit log / redaction 不能被迁移削弱。
+```
+
+## 2026-06-01 本地 Qwen 35B Q4_K_M 交付闭环
+
+本轮目标：
+```text
+1. 部署真实本地 Qwen 35B/32B 级模型，不使用 4B。
+2. 不把 qwen3.5:27b 当作 35B 替代。
+3. 让 agent_chat 能通过 local_qwen 调用真实本地模型返回文本。
+4. 保持高风险任务由本地策略阻止，不能由本地模型批准。
+```
+
+已完成：
+```text
+1. 安装 llama.cpp b9444 Windows x64 CUDA 13.3 到 E:\agents\tools\llama.cpp\b9444。
+2. 验证 llama-server.exe --version 正常。
+3. 下载 Qwen_Qwen3.5-35B-A3B-Q4_K_M.gguf 到 E:\agents\models。
+4. 校验模型 SHA256：
+   2f2df1e8b2e92b642c1850ea1734b341cc8ca5098c42cc0a8b8c436a8d4751ab。
+5. 增加 scripts/start_llama_server.cmd 和 scripts/stop_llama_server.cmd。
+6. 启动参数固定为 127.0.0.1:8000、ctx=2048、parallel=1、reasoning off。
+7. agent_chat --local 已验证能返回本地模型回复。
+8. 本地高风险任务验证为 blocked / not_executed。
+```
+
+验证证据：
+```text
+1. llama-server 前台加载日志显示 model loaded。
+2. /v1/models 返回 200。
+3. agent_chat --message "请用一句中文说明你已经接入本地模型" --local --json 返回：
+   model_status=completed
+   model=qwen-35b-local
+   reply=已接入本地模型。
+4. python -m pytest tests/test_agent_chat.py tests/test_model_router.py 通过：
+   18 passed, 1 warning。
+5. scripts/check_model_config.py 输出：
+   local_qwen ready=True
+   deepseek ready=False missing SAFEAGENT_DEEPSEEK_API_KEY
+   codex disabled。
+```
+
+注意：
+```text
+1. Codex 执行环境会清理其启动的后台子进程；用户实际运行时应使用 scripts/start_llama_server.cmd 并保持最小化窗口。
+2. Qwen 35B Q4_K_M 文件和 llama.cpp 工具目录已加入 gitignore，不应提交。
+3. DeepSeek key 仍未配置；这不影响本地 Qwen 对话路径。
 ```

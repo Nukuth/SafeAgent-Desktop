@@ -1143,11 +1143,12 @@ Local model endpoint is unreachable
 先完成一个低内存 35B/32B 级本地模型服务：
 
 ```text
-1. 下载 35B/32B 级 GGUF 4-bit 模型。
+1. 确认用户已批准下载 20GB+ GGUF 文件；未批准时不要下载。
 2. 模型文件放到 E:\agents\models。
-3. 用 llama.cpp / llama-server / LM Studio / Ollama 暴露 OpenAI-compatible API。
+3. 优先用 latest llama.cpp / llama-server 暴露 OpenAI-compatible API。
 4. 确认 API base URL 是 http://127.0.0.1:8000/v1 或同步修改环境变量。
-5. 再启动 SafeAgent worker。
+5. Windows 优先选同一 release 的 CUDA 13.x 构建；失败再考虑同 release CUDA 12.4 回退。
+6. 再启动 SafeAgent worker。
 ```
 
 ## 本地 Qwen 内存不足或非常慢
@@ -1169,7 +1170,7 @@ Local model endpoint is unreachable
 3. 把上下文从 32768 降到 4096。
 4. 并发设为 1。
 5. 关闭不必要的浏览器、IDE、游戏和后台服务。
-6. 仍然不行时，先用 7B/8B 验证 API，再回到 35B/32B 排查模型文件或参数。
+6. 不使用 4B，不把 qwen3.5:27b 当作 35B/32B 替代。
 7. 不要让本地模型参与高风险审查，避免慢模型阻塞安全流程。
 ```
 

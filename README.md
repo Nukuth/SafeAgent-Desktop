@@ -33,6 +33,9 @@ Safety is always above automation speed, UI polish, model output quality, and La
 
 See `docs/ROADMAP_STATUS.md` for the current alignment status and staged roadmap.
 See `docs/ERRORS.md` for the structured error-code catalog.
+See `docs/V1_HANDOFF.md` for the current usable V1 handoff.
+See `docs/DEEPSEEK_PROVIDER.md` for DeepSeek key setup, Codex reserved reviewer setup, and safe config checks.
+See `docs/LOCAL_DELIVERY.md` for the local Qwen 35B delivery runbook.
 See `docs/TROUBLESHOOTING_LANGGRAPH_INSTALL.md` if LangGraph installation fails.
 
 Graph runtime defaults to `auto`, which uses LangGraph when installed and keeps
@@ -72,10 +75,26 @@ runtime to the system `PATH`; call it through the explicit path above.
 ## Run Server
 
 ```powershell
-$env:SAFEAGENT_SERVER_TOKEN="change-me"
-$env:SAFEAGENT_DB_PATH="E:\agents\state\server.sqlite3"
-uvicorn safeagent.server.app:create_app --factory --host 127.0.0.1 --port 8080
+cd E:\agents
+.\scripts\start_control_console.cmd
 ```
+
+Then open `http://127.0.0.1:8080`.
+
+The control console includes a `过程日志` section. Submit a task, then click
+`查看任务过程` to see the redacted agent event chain. If a run exists, click
+`查看 Run 过程` to inspect run-level events and diagnostics. Full local logs
+stay under `E:\agents\logs`.
+
+The UI is Chinese-first:
+
+- `提交任务（可创建和审批）`: can create tasks.
+- `只审批（不能创建任务）`: approval-only mode.
+- `只读查看（不能提交或审批）`: view-only mode.
+
+The home page also shows the multi-model split: DeepSeek as the main model,
+Codex as the high-risk reviewer interface, and local Qwen 35B as the emergency
+local model path.
 
 ## Run Worker
 
